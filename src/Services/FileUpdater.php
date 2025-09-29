@@ -263,45 +263,79 @@ class FileUpdater
             if (isset($newContent['src'])) {
                 // Use original content to find the specific image
                 if ($originalContent && !empty($originalContent)) {
-                    // Find the img tag that contains our original content
-                    // Match img tags and check if they contain our original src
+                    // Find all img tags with their positions
                     preg_match_all('/<img[^>]*>/i', $content, $imgMatches, PREG_OFFSET_CAPTURE);
 
-                    foreach ($imgMatches[0] as $imgMatch) {
+                    // Try to find the specific image by matching the original src
+                    $bestMatch = null;
+                    $bestMatchPos = -1;
+
+                    foreach ($imgMatches[0] as $index => $imgMatch) {
                         $imgTag = $imgMatch[0];
                         $imgPos = $imgMatch[1];
 
-                        // Check if this img tag contains our original src hint
-                        if (strpos($imgTag, $originalContent) !== false ||
-                            strpos($imgTag, htmlspecialchars($originalContent)) !== false) {
+                        // Extract src from this img tag
+                        if (preg_match('/src=["\']([^"\']*)["\']/', $imgTag, $srcMatch)) {
+                            $currentSrc = $srcMatch[1];
 
-                            // This is our target image - update its src
-                            $newImgTag = preg_replace(
-                                '/src=["\'][^"\']*["\']/',
-                                'src="' . $newContent['src'] . '"',
-                                $imgTag
-                            );
+                            // Check for exact match with original content
+                            if ($currentSrc === $originalContent ||
+                                htmlspecialchars_decode($currentSrc) === $originalContent ||
+                                $currentSrc === htmlspecialchars($originalContent)) {
 
-                            // Update alt if provided
-                            if (isset($newContent['alt'])) {
+                                // Found exact match - this is definitely our image
+                                $bestMatch = $imgTag;
+                                $bestMatchPos = $imgPos;
+                                break;
+                            }
+
+                            // Check if this img tag contains our original src hint (partial match)
+                            if ($bestMatch === null &&
+                                (strpos($imgTag, $originalContent) !== false ||
+                                 strpos($imgTag, htmlspecialchars($originalContent)) !== false)) {
+                                $bestMatch = $imgTag;
+                                $bestMatchPos = $imgPos;
+                            }
+                        }
+                    }
+
+                    // Update the best match we found
+                    if ($bestMatch !== null && $bestMatchPos >= 0) {
+                        // This is our target image - update its src
+                        $newImgTag = preg_replace(
+                            '/src=["\'][^"\']*["\']/',
+                            'src="' . $newContent['src'] . '"',
+                            $bestMatch
+                        );
+
+                        // Update alt if provided
+                        if (isset($newContent['alt'])) {
+                            if (preg_match('/alt=["\'][^"\']*["\']/', $newImgTag)) {
                                 $newImgTag = preg_replace(
                                     '/alt=["\'][^"\']*["\']/',
                                     'alt="' . $newContent['alt'] . '"',
                                     $newImgTag
                                 );
+                            } else {
+                                // Add alt attribute if it doesn't exist
+                                $newImgTag = preg_replace(
+                                    '/<img/',
+                                    '<img alt="' . $newContent['alt'] . '"',
+                                    $newImgTag
+                                );
                             }
-
-                            // Replace in content
-                            $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
-
-                            $this->logger->info('Updated specific image in Blade file', [
-                                'element_id' => $elementId,
-                                'original_hint' => substr($originalContent, 0, 50),
-                                'new_src' => $newContent['src']
-                            ]);
-
-                            return $content;
                         }
+
+                        // Replace in content
+                        $content = substr_replace($content, $newImgTag, $bestMatchPos, strlen($bestMatch));
+
+                        $this->logger->info('Updated specific image in Blade file', [
+                            'element_id' => $elementId,
+                            'original_hint' => substr($originalContent, 0, 50),
+                            'new_src' => $newContent['src']
+                        ]);
+
+                        return $content;
                     }
                 }
 

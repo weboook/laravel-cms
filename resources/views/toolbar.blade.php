@@ -1585,27 +1585,47 @@
                     return;
                 }
 
-                // Helper to escape HTML (if not already defined)
-                const escapeHtml = (str) => {
-                    const div = document.createElement('div');
-                    div.textContent = str;
-                    return div.innerHTML;
-                };
+                // Clear the list first
+                list.innerHTML = '';
 
-                list.innerHTML = availableLanguages.map(lang => {
-                    const safeName = escapeHtml(lang.native_name || lang.code);
-                    const safeCode = escapeHtml(lang.code);
+                // Create language items using DOM methods
+                availableLanguages.forEach(lang => {
+                    // Create main container
+                    const langItem = document.createElement('div');
+                    langItem.className = 'cms-language-item';
+                    if (lang.active) langItem.classList.add('active');
+                    langItem.dataset.lang = lang.code;
 
-                    return `
-                    <div class="cms-language-item ${lang.active ? 'active' : ''}" data-lang="${safeCode}">
-                        <div>
-                            <div class="cms-language-name">${safeName}</div>
-                            <div class="cms-language-code">${safeCode}</div>
-                        </div>
-                        ${lang.active ? '<span>✓</span>' : ''}
-                    </div>
-                    `;
-                }).join('');
+                    // Create inner container
+                    const innerDiv = document.createElement('div');
+
+                    // Create name element
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'cms-language-name';
+                    nameDiv.textContent = lang.native_name || lang.code;
+
+                    // Create code element
+                    const codeDiv = document.createElement('div');
+                    codeDiv.className = 'cms-language-code';
+                    codeDiv.textContent = lang.code;
+
+                    // Append name and code to inner container
+                    innerDiv.appendChild(nameDiv);
+                    innerDiv.appendChild(codeDiv);
+
+                    // Append inner container to language item
+                    langItem.appendChild(innerDiv);
+
+                    // Add checkmark if active
+                    if (lang.active) {
+                        const checkmark = document.createElement('span');
+                        checkmark.textContent = '✓';
+                        langItem.appendChild(checkmark);
+                    }
+
+                    // Append to list
+                    list.appendChild(langItem);
+                });
 
                 // Add click handlers
                 list.querySelectorAll('.cms-language-item').forEach(item => {
@@ -1628,33 +1648,54 @@
                     return;
                 }
 
-                // Helper to escape HTML
-                const escapeHtml = (str) => {
-                    const div = document.createElement('div');
-                    div.textContent = str;
-                    return div.innerHTML;
-                };
+                // Clear the list first
+                list.innerHTML = '';
 
-                list.innerHTML = allPages.map(page => {
+                // Create page items using DOM methods for proper structure
+                allPages.forEach(page => {
                     // Filter out storage routes
                     if (page.path && page.path.includes('/storage/')) {
-                        return '';
+                        return;
                     }
 
-                    const safeTitle = escapeHtml(page.title || 'Untitled');
-                    const safePath = escapeHtml(page.path || '/');
+                    // Create main container
+                    const pageItem = document.createElement('div');
+                    pageItem.className = 'cms-page-item';
+                    if (page.is_template) pageItem.classList.add('template');
+                    if (page.path === currentPage) pageItem.classList.add('active');
+                    pageItem.dataset.path = page.path;
+                    pageItem.dataset.template = page.is_template;
 
-                    return `
-                    <div class="cms-page-item ${page.is_template ? 'template' : ''} ${page.path === currentPage ? 'active' : ''}"
-                         data-path="${safePath}"
-                         data-template="${page.is_template}">
-                        <div>
-                            <div class="cms-page-item-title">${safeTitle}</div>
-                            <div class="cms-page-item-path">${safePath}</div>
-                        </div>
-                        ${page.is_template ? '<span>Template</span>' : ''}
-                    </div>`;
-                }).join('');
+                    // Create inner container
+                    const innerDiv = document.createElement('div');
+
+                    // Create title element
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'cms-page-item-title';
+                    titleDiv.textContent = page.title || 'Untitled';
+
+                    // Create path element
+                    const pathDiv = document.createElement('div');
+                    pathDiv.className = 'cms-page-item-path';
+                    pathDiv.textContent = page.path;
+
+                    // Append title and path to inner container
+                    innerDiv.appendChild(titleDiv);
+                    innerDiv.appendChild(pathDiv);
+
+                    // Append inner container to page item
+                    pageItem.appendChild(innerDiv);
+
+                    // Add template badge if needed
+                    if (page.is_template) {
+                        const badge = document.createElement('span');
+                        badge.textContent = 'Template';
+                        pageItem.appendChild(badge);
+                    }
+
+                    // Append to list
+                    list.appendChild(pageItem);
+                });
 
                 // Add click handlers
                 list.querySelectorAll('.cms-page-item').forEach(item => {
