@@ -48,4 +48,36 @@ return [
         'enabled' => env('CMS_LOGGING_ENABLED', true),
         'debug' => env('CMS_LOGGING_DEBUG', false),
     ],
+
+    'exclusions' => [
+        // Routes where CMS should not be active
+        'routes' => [
+            // 'admin/*',
+            // 'api/*',
+            // 'telescope/*',
+            // 'horizon/*',
+        ],
+
+        // Route prefixes to exclude
+        'prefixes' => [
+            'admin',
+            'api',
+            'telescope',
+            'horizon',
+            'nova',
+            '_debugbar',
+        ],
+
+        // Route names to exclude (exact match)
+        'names' => [
+            // 'admin.dashboard',
+            // 'admin.users.index',
+        ],
+
+        // Route groups to exclude
+        'middlewares' => [
+            // 'admin',
+            // 'api',
+        ],
+    ],
 ];

@@ -147,6 +147,49 @@
                         <option value="light">Light</option>
                     </select>
                 </div>
+
+                <div class="cms-setting-section">
+                    <h3 class="cms-setting-section-title">Route Exclusions</h3>
+
+                    <div class="cms-setting-group">
+                        <label class="cms-label">Excluded Prefixes</label>
+                        <div class="cms-tag-input">
+                            <div class="cms-tags" id="cms-excluded-prefixes">
+                                <span class="cms-tag">admin <button class="cms-tag-remove" data-value="admin">&times;</button></span>
+                                <span class="cms-tag">api <button class="cms-tag-remove" data-value="api">&times;</button></span>
+                                <span class="cms-tag">telescope <button class="cms-tag-remove" data-value="telescope">&times;</button></span>
+                                <span class="cms-tag">horizon <button class="cms-tag-remove" data-value="horizon">&times;</button></span>
+                            </div>
+                            <input type="text" class="cms-input cms-tag-input-field"
+                                   id="cms-add-prefix"
+                                   placeholder="Add prefix (e.g., admin)">
+                        </div>
+                        <small class="cms-help-text">Routes starting with these prefixes won't show the CMS toolbar</small>
+                    </div>
+
+                    <div class="cms-setting-group">
+                        <label class="cms-label">Excluded Route Patterns</label>
+                        <div class="cms-tag-input">
+                            <div class="cms-tags" id="cms-excluded-routes"></div>
+                            <input type="text" class="cms-input cms-tag-input-field"
+                                   id="cms-add-route"
+                                   placeholder="Add route pattern (e.g., admin/*, login)">
+                        </div>
+                        <small class="cms-help-text">Use * as wildcard. Example: admin/* excludes all admin routes</small>
+                    </div>
+
+                    <div class="cms-setting-group">
+                        <label class="cms-label">Excluded Route Names</label>
+                        <div class="cms-tag-input">
+                            <div class="cms-tags" id="cms-excluded-names"></div>
+                            <input type="text" class="cms-input cms-tag-input-field"
+                                   id="cms-add-name"
+                                   placeholder="Add route name (e.g., admin.dashboard)">
+                        </div>
+                        <small class="cms-help-text">Exact route names to exclude</small>
+                    </div>
+                </div>
+
                 <div class="cms-setting-group">
                     <button class="cms-btn cms-btn-primary" id="cms-save-settings">Save Settings</button>
                 </div>
@@ -154,15 +197,91 @@
         </div>
     </div>
 
-    {{-- Asset Library Modal (placeholder) --}}
+    {{-- Asset Library Modal --}}
     <div class="cms-modal cms-modal-assets" data-modal="assets" style="display: none;">
         <div class="cms-modal-header">
             <h2>Asset Library</h2>
             <button class="cms-modal-close">&times;</button>
         </div>
         <div class="cms-modal-body">
-            <div class="cms-assets-placeholder">
-                <p>Asset Library will be implemented in the next step.</p>
+            <div class="cms-media-library">
+                {{-- Sidebar with folders --}}
+                <div class="cms-media-sidebar">
+                    <div class="cms-media-sidebar-header">
+                        <h3>Folders</h3>
+                        <button class="cms-btn-icon cms-btn-create-folder" title="Create Folder">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                <line x1="12" y1="11" x2="12" y2="17"></line>
+                                <line x1="9" y1="14" x2="15" y2="14"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="cms-media-folders" id="cms-media-folders">
+                        <div class="cms-media-folder active" data-folder-id="0">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span>All Media</span>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Main content area --}}
+                <div class="cms-media-main">
+                    <div class="cms-media-toolbar">
+                        <div class="cms-media-search">
+                            <input type="text" class="cms-input" placeholder="Search media..." id="cms-media-search">
+                        </div>
+                        <div class="cms-media-actions">
+                            <button class="cms-btn cms-btn-primary cms-btn-upload-media">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                Upload
+                            </button>
+                            <input type="file" id="cms-media-file-input" multiple accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+
+                    <div class="cms-media-grid" id="cms-media-grid">
+                        <div class="cms-media-loading">Loading media...</div>
+                    </div>
+
+                    <div class="cms-media-selected-info" id="cms-media-selected-info" style="display: none;">
+                        <div class="cms-media-selected-details">
+                            <span id="cms-media-selected-count">0 selected</span>
+                            <button class="cms-btn cms-btn-sm" id="cms-media-deselect">Deselect All</button>
+                        </div>
+                        <button class="cms-btn cms-btn-primary" id="cms-media-insert">Insert Selected</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Create Folder Modal --}}
+    <div class="cms-modal cms-modal-create-folder" data-modal="create-folder" style="display: none;">
+        <div class="cms-modal-header">
+            <h2>Create Folder</h2>
+            <button class="cms-modal-close">&times;</button>
+        </div>
+        <div class="cms-modal-body">
+            <div class="cms-form-group">
+                <label class="cms-label">Folder Name</label>
+                <input type="text" class="cms-input" id="cms-new-folder-name" placeholder="Enter folder name">
+            </div>
+            <div class="cms-form-group">
+                <label class="cms-label">Parent Folder</label>
+                <select class="cms-select" id="cms-parent-folder">
+                    <option value="0">Root</option>
+                </select>
+            </div>
+            <div class="cms-form-actions">
+                <button class="cms-btn" id="cms-cancel-folder">Cancel</button>
+                <button class="cms-btn cms-btn-primary" id="cms-create-folder">Create</button>
             </div>
         </div>
     </div>
@@ -756,6 +875,260 @@
         padding-top: 20px;
         border-top: 1px solid #444;
     }
+
+    /* Tag input styles */
+    .cms-tag-input {
+        margin-top: 8px;
+    }
+
+    .cms-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+        min-height: 32px;
+    }
+
+    .cms-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #555;
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .cms-tag-remove {
+        background: none;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        padding: 0;
+        font-size: 18px;
+        line-height: 1;
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cms-tag-remove:hover {
+        color: #fff;
+    }
+
+    .cms-tag-input-field {
+        width: 100%;
+        background: #444;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 8px 12px;
+        border-radius: 4px;
+    }
+
+    .cms-help-text {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        color: #999;
+    }
+
+    /* Media Library Styles */
+    .cms-media-library {
+        display: flex;
+        height: 500px;
+    }
+
+    .cms-media-sidebar {
+        width: 200px;
+        border-right: 1px solid #444;
+        overflow-y: auto;
+    }
+
+    .cms-media-sidebar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid #444;
+    }
+
+    .cms-media-sidebar-header h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .cms-btn-icon {
+        background: transparent;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cms-btn-icon:hover {
+        color: #fff;
+    }
+
+    .cms-media-folders {
+        padding: 10px;
+    }
+
+    .cms-media-folder {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-bottom: 4px;
+    }
+
+    .cms-media-folder:hover {
+        background: #444;
+    }
+
+    .cms-media-folder.active {
+        background: #007bff;
+        color: #fff;
+    }
+
+    .cms-media-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .cms-media-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid #444;
+    }
+
+    .cms-media-search input {
+        width: 250px;
+    }
+
+    .cms-media-grid {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+    }
+
+    .cms-media-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 4px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .cms-media-item:hover {
+        border-color: #666;
+    }
+
+    .cms-media-item.selected {
+        border-color: #007bff;
+    }
+
+    .cms-media-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .cms-media-item-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.7) 100%);
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .cms-media-item:hover .cms-media-item-overlay {
+        opacity: 1;
+    }
+
+    .cms-media-item-info {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 8px;
+        color: #fff;
+        font-size: 11px;
+        transform: translateY(100%);
+        transition: transform 0.2s;
+    }
+
+    .cms-media-item:hover .cms-media-item-info {
+        transform: translateY(0);
+    }
+
+    .cms-media-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: #999;
+    }
+
+    .cms-media-selected-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-top: 1px solid #444;
+        background: #2a2a2a;
+    }
+
+    .cms-media-selected-details {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .cms-form-group {
+        margin-bottom: 15px;
+    }
+
+    .cms-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .cms-select {
+        width: 100%;
+        background: #444;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 8px 12px;
+        border-radius: 4px;
+    }
+
+    .cms-btn-sm {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
 </style>
 
 <script>
@@ -855,6 +1228,9 @@
                 // Settings save
                 document.getElementById('cms-save-settings')?.addEventListener('click', saveSettings);
 
+                // Setup exclusion tag inputs
+                setupExclusionTagInputs();
+
                 // Pages search
                 document.getElementById('cms-pages-search')?.addEventListener('input', filterPages);
 
@@ -868,6 +1244,9 @@
                 document.getElementById('cms-save-image')?.addEventListener('click', saveImageChanges);
                 document.getElementById('cms-cancel-image')?.addEventListener('click', () => closeModal());
                 setupImageDropzone();
+
+                // Media library handlers
+                setupMediaLibrary();
 
                 // Content change handler
                 document.addEventListener('cms:contentChanged', handleContentChanged);
@@ -1112,6 +1491,140 @@
                     });
             }
 
+            // Setup exclusion tag inputs
+            function setupExclusionTagInputs() {
+                // Load current exclusions
+                loadExclusions();
+
+                // Setup tag input handlers for prefixes
+                const prefixInput = document.getElementById('cms-add-prefix');
+                const prefixTags = document.getElementById('cms-excluded-prefixes');
+
+                if (prefixInput) {
+                    prefixInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const value = this.value.trim();
+                            if (value) {
+                                addTag(prefixTags, value);
+                                this.value = '';
+                            }
+                        }
+                    });
+                }
+
+                // Setup tag input handlers for route patterns
+                const routeInput = document.getElementById('cms-add-route');
+                const routeTags = document.getElementById('cms-excluded-routes');
+
+                if (routeInput) {
+                    routeInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const value = this.value.trim();
+                            if (value) {
+                                addTag(routeTags, value);
+                                this.value = '';
+                            }
+                        }
+                    });
+                }
+
+                // Setup tag input handlers for route names
+                const nameInput = document.getElementById('cms-add-name');
+                const nameTags = document.getElementById('cms-excluded-names');
+
+                if (nameInput) {
+                    nameInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const value = this.value.trim();
+                            if (value) {
+                                addTag(nameTags, value);
+                                this.value = '';
+                            }
+                        }
+                    });
+                }
+
+                // Handle tag removal clicks
+                document.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('cms-tag-remove')) {
+                        e.preventDefault();
+                        const tag = e.target.closest('.cms-tag');
+                        if (tag) {
+                            tag.remove();
+                        }
+                    }
+                });
+            }
+
+            // Add tag to container
+            function addTag(container, value) {
+                if (!container) return;
+
+                // Check if tag already exists
+                const existing = Array.from(container.querySelectorAll('.cms-tag')).find(tag => {
+                    return tag.querySelector('.cms-tag-remove')?.dataset.value === value;
+                });
+
+                if (existing) return;
+
+                const tag = document.createElement('span');
+                tag.className = 'cms-tag';
+                tag.innerHTML = `${value} <button class="cms-tag-remove" data-value="${value}">&times;</button>`;
+                container.appendChild(tag);
+            }
+
+            // Load current exclusions from backend
+            function loadExclusions() {
+                fetch(apiBaseUrl + '/settings/exclusions')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Clear existing tags
+                        document.getElementById('cms-excluded-prefixes').innerHTML = '';
+                        document.getElementById('cms-excluded-routes').innerHTML = '';
+                        document.getElementById('cms-excluded-names').innerHTML = '';
+
+                        // Add prefixes
+                        if (data.prefixes && Array.isArray(data.prefixes)) {
+                            const prefixContainer = document.getElementById('cms-excluded-prefixes');
+                            data.prefixes.forEach(prefix => {
+                                addTag(prefixContainer, prefix);
+                            });
+                        }
+
+                        // Add routes
+                        if (data.routes && Array.isArray(data.routes)) {
+                            const routeContainer = document.getElementById('cms-excluded-routes');
+                            data.routes.forEach(route => {
+                                addTag(routeContainer, route);
+                            });
+                        }
+
+                        // Add names
+                        if (data.names && Array.isArray(data.names)) {
+                            const nameContainer = document.getElementById('cms-excluded-names');
+                            data.names.forEach(name => {
+                                addTag(nameContainer, name);
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Failed to load exclusions:', error);
+                    });
+            }
+
+            // Get tags from container
+            function getTagValues(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return [];
+
+                return Array.from(container.querySelectorAll('.cms-tag-remove')).map(btn => {
+                    return btn.dataset.value;
+                });
+            }
+
             // Save Settings
             function saveSettings() {
                 const settings = {
@@ -1120,6 +1633,11 @@
                         enabled: document.getElementById('cms-setting-toolbar').checked,
                         position: document.getElementById('cms-setting-position').value,
                         theme: document.getElementById('cms-setting-theme').value
+                    },
+                    exclusions: {
+                        prefixes: getTagValues('cms-excluded-prefixes'),
+                        routes: getTagValues('cms-excluded-routes'),
+                        names: getTagValues('cms-excluded-names')
                     }
                 };
 
@@ -1312,6 +1830,337 @@
                 }
 
                 window.CMS.selectedImageFile = () => selectedFile;
+            }
+
+            // Setup media library
+            function setupMediaLibrary() {
+                let currentFolder = 0;
+                let selectedMedia = [];
+                let mediaItems = [];
+                let folders = [];
+
+                // Load folders
+                loadFolders();
+
+                // Load media on modal open
+                document.querySelector('[data-modal="assets"]')?.addEventListener('click', function() {
+                    loadMedia();
+                });
+
+                // Upload button
+                document.querySelector('.cms-btn-upload-media')?.addEventListener('click', function() {
+                    document.getElementById('cms-media-file-input')?.click();
+                });
+
+                // File input change
+                document.getElementById('cms-media-file-input')?.addEventListener('change', function(e) {
+                    const files = e.target.files;
+                    if (files.length > 0) {
+                        uploadMediaFiles(files);
+                    }
+                });
+
+                // Create folder button
+                document.querySelector('.cms-btn-create-folder')?.addEventListener('click', function() {
+                    openModal('create-folder');
+                    loadFolderOptions();
+                });
+
+                // Create folder submit
+                document.getElementById('cms-create-folder')?.addEventListener('click', function() {
+                    createFolder();
+                });
+
+                // Cancel folder creation
+                document.getElementById('cms-cancel-folder')?.addEventListener('click', function() {
+                    closeModal();
+                });
+
+                // Folder selection
+                document.addEventListener('click', function(e) {
+                    if (e.target.closest('.cms-media-folder')) {
+                        const folder = e.target.closest('.cms-media-folder');
+                        selectFolder(folder);
+                    }
+                });
+
+                // Media item selection
+                document.addEventListener('click', function(e) {
+                    if (e.target.closest('.cms-media-item')) {
+                        const item = e.target.closest('.cms-media-item');
+                        toggleMediaSelection(item);
+                    }
+                });
+
+                // Search
+                let searchTimeout;
+                document.getElementById('cms-media-search')?.addEventListener('input', function(e) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        filterMedia(e.target.value);
+                    }, 300);
+                });
+
+                // Deselect all
+                document.getElementById('cms-media-deselect')?.addEventListener('click', function() {
+                    deselectAllMedia();
+                });
+
+                // Insert selected media
+                document.getElementById('cms-media-insert')?.addEventListener('click', function() {
+                    insertSelectedMedia();
+                });
+
+                // Load folders from API
+                function loadFolders() {
+                    fetch(apiBaseUrl + '/media/folders')
+                        .then(response => response.json())
+                        .then(data => {
+                            folders = data.folders || [];
+                            renderFolders();
+                        })
+                        .catch(error => {
+                            console.error('Failed to load folders:', error);
+                        });
+                }
+
+                // Render folders
+                function renderFolders() {
+                    const container = document.getElementById('cms-media-folders');
+                    if (!container) return;
+
+                    let html = `
+                        <div class="cms-media-folder ${currentFolder === 0 ? 'active' : ''}" data-folder-id="0">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span>All Media</span>
+                        </div>
+                    `;
+
+                    folders.forEach(folder => {
+                        html += `
+                            <div class="cms-media-folder ${currentFolder === folder.id ? 'active' : ''}" data-folder-id="${folder.id}">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <span>${folder.name}</span>
+                            </div>
+                        `;
+                    });
+
+                    container.innerHTML = html;
+                }
+
+                // Select folder
+                function selectFolder(folderEl) {
+                    document.querySelectorAll('.cms-media-folder').forEach(f => {
+                        f.classList.remove('active');
+                    });
+                    folderEl.classList.add('active');
+                    currentFolder = parseInt(folderEl.dataset.folderId);
+                    loadMedia();
+                }
+
+                // Load media
+                function loadMedia() {
+                    const grid = document.getElementById('cms-media-grid');
+                    if (!grid) return;
+
+                    grid.innerHTML = '<div class="cms-media-loading">Loading media...</div>';
+
+                    let url = apiBaseUrl + '/media';
+                    if (currentFolder > 0) {
+                        url += `?folder_id=${currentFolder}`;
+                    }
+
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            mediaItems = data.media || [];
+                            renderMedia();
+                        })
+                        .catch(error => {
+                            console.error('Failed to load media:', error);
+                            grid.innerHTML = '<div class="cms-media-loading">Failed to load media</div>';
+                        });
+                }
+
+                // Render media
+                function renderMedia() {
+                    const grid = document.getElementById('cms-media-grid');
+                    if (!grid) return;
+
+                    if (mediaItems.length === 0) {
+                        grid.innerHTML = '<div class="cms-media-loading">No media found</div>';
+                        return;
+                    }
+
+                    grid.innerHTML = mediaItems.map(item => `
+                        <div class="cms-media-item" data-media-id="${item.id}" data-url="${item.url}">
+                            <img src="${item.url}" alt="${item.alt || ''}">
+                            <div class="cms-media-item-overlay"></div>
+                            <div class="cms-media-item-info">
+                                ${item.filename}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // Toggle media selection
+                function toggleMediaSelection(item) {
+                    const mediaId = parseInt(item.dataset.mediaId);
+                    const isSelected = item.classList.contains('selected');
+
+                    if (isSelected) {
+                        item.classList.remove('selected');
+                        selectedMedia = selectedMedia.filter(id => id !== mediaId);
+                    } else {
+                        item.classList.add('selected');
+                        selectedMedia.push(mediaId);
+                    }
+
+                    updateSelectionInfo();
+                }
+
+                // Update selection info
+                function updateSelectionInfo() {
+                    const info = document.getElementById('cms-media-selected-info');
+                    const count = document.getElementById('cms-media-selected-count');
+
+                    if (selectedMedia.length > 0) {
+                        info.style.display = 'flex';
+                        count.textContent = `${selectedMedia.length} selected`;
+                    } else {
+                        info.style.display = 'none';
+                    }
+                }
+
+                // Deselect all media
+                function deselectAllMedia() {
+                    document.querySelectorAll('.cms-media-item.selected').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    selectedMedia = [];
+                    updateSelectionInfo();
+                }
+
+                // Filter media
+                function filterMedia(query) {
+                    const items = document.querySelectorAll('.cms-media-item');
+                    const lowerQuery = query.toLowerCase();
+
+                    items.forEach(item => {
+                        const info = item.querySelector('.cms-media-item-info');
+                        const filename = info ? info.textContent.toLowerCase() : '';
+
+                        if (filename.includes(lowerQuery)) {
+                            item.style.display = '';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                }
+
+                // Upload media files
+                function uploadMediaFiles(files) {
+                    const formData = new FormData();
+
+                    for (let i = 0; i < files.length; i++) {
+                        formData.append('images[]', files[i]);
+                    }
+
+                    if (currentFolder > 0) {
+                        formData.append('folder_id', currentFolder);
+                    }
+
+                    // Show loading
+                    const grid = document.getElementById('cms-media-grid');
+                    grid.innerHTML = '<div class="cms-media-loading">Uploading...</div>';
+
+                    fetch(apiBaseUrl + '/media/upload-multiple', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadMedia();
+                        } else {
+                            alert('Upload failed: ' + (data.message || 'Unknown error'));
+                            loadMedia();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Upload failed:', error);
+                        alert('Upload failed. Please try again.');
+                        loadMedia();
+                    });
+                }
+
+                // Load folder options for create modal
+                function loadFolderOptions() {
+                    const select = document.getElementById('cms-parent-folder');
+                    if (!select) return;
+
+                    let html = '<option value="0">Root</option>';
+                    folders.forEach(folder => {
+                        html += `<option value="${folder.id}">${folder.name}</option>`;
+                    });
+                    select.innerHTML = html;
+                }
+
+                // Create folder
+                function createFolder() {
+                    const name = document.getElementById('cms-new-folder-name')?.value.trim();
+                    const parentId = document.getElementById('cms-parent-folder')?.value || 0;
+
+                    if (!name) {
+                        alert('Please enter a folder name');
+                        return;
+                    }
+
+                    fetch(apiBaseUrl + '/media/folders', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            parent_id: parentId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadFolders();
+                            closeModal();
+                            document.getElementById('cms-new-folder-name').value = '';
+                        } else {
+                            alert('Failed to create folder: ' + (data.message || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Failed to create folder:', error);
+                        alert('Failed to create folder. Please try again.');
+                    });
+                }
+
+                // Insert selected media (placeholder - implement based on context)
+                function insertSelectedMedia() {
+                    const selected = document.querySelectorAll('.cms-media-item.selected');
+                    const urls = Array.from(selected).map(item => item.dataset.url);
+
+                    console.log('Selected media URLs:', urls);
+                    // TODO: Implement based on where media needs to be inserted
+
+                    closeModal();
+                    deselectAllMedia();
+                }
             }
 
             // Save image changes

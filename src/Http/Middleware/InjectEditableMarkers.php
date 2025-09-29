@@ -38,8 +38,8 @@ class InjectEditableMarkers
             return $response;
         }
 
-        // Skip API and CMS routes
-        if ($request->is('api/*') || $request->is('cms/*')) {
+        // Check if current route should be excluded
+        if ($this->shouldExclude($request)) {
             return $response;
         }
 
@@ -324,6 +324,53 @@ class InjectEditableMarkers
             }
             $parent = $parent->parentNode;
             $depth++;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if the current request should be excluded from CMS
+     */
+    protected function shouldExclude($request)
+    {
+        // Check excluded routes (pattern matching)
+        $excludedRoutes = config('cms.exclusions.routes', []);
+        foreach ($excludedRoutes as $pattern) {
+            if ($request->is($pattern)) {
+                return true;
+            }
+        }
+
+        // Check excluded prefixes
+        $excludedPrefixes = config('cms.exclusions.prefixes', []);
+        $path = $request->path();
+        foreach ($excludedPrefixes as $prefix) {
+            if (str_starts_with($path, $prefix . '/') || $path === $prefix) {
+                return true;
+            }
+        }
+
+        // Check excluded route names
+        $routeName = $request->route()?->getName();
+        if ($routeName) {
+            $excludedNames = config('cms.exclusions.names', []);
+            if (in_array($routeName, $excludedNames)) {
+                return true;
+            }
+        }
+
+        // Check excluded middleware groups
+        $route = $request->route();
+        if ($route) {
+            $excludedMiddlewares = config('cms.exclusions.middlewares', []);
+            $routeMiddlewares = $route->gatherMiddleware();
+
+            foreach ($excludedMiddlewares as $middleware) {
+                if (in_array($middleware, $routeMiddlewares)) {
+                    return true;
+                }
+            }
         }
 
         return false;

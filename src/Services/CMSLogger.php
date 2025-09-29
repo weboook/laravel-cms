@@ -63,11 +63,19 @@ class CMSLogger
     {
         if (!$this->enabled) return;
 
+        // Handle arrays (for image data)
+        if (is_array($oldContent)) {
+            $oldContent = json_encode($oldContent);
+        }
+        if (is_array($newContent)) {
+            $newContent = json_encode($newContent);
+        }
+
         $this->log('CONTENT', 'Content updated', [
             'file' => $file,
             'element_id' => $elementId,
-            'old_content' => substr($oldContent, 0, 100),
-            'new_content' => substr($newContent, 0, 100),
+            'old_content' => substr((string)$oldContent, 0, 100),
+            'new_content' => substr((string)$newContent, 0, 100),
             'user' => $user ?: 'anonymous',
             'ip' => request()->ip()
         ]);

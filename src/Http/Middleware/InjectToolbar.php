@@ -20,7 +20,8 @@ class InjectToolbar
             return $response;
         }
 
-        if ($request->is('cms/*') || $request->is('api/*')) {
+        // Check if current route should be excluded
+        if ($this->shouldExclude($request)) {
             return $response;
         }
 
@@ -40,5 +41,73 @@ class InjectToolbar
         }
 
         return $response;
+    }
+
+    /**
+     * Check if the current request should be excluded from CMS
+     */
+    protected function shouldExclude(Request $request)
+    {
+        // Load runtime settings
+        $settingsFile = storage_path('cms/settings.json');
+        $runtimeExclusions = [];
+        if (file_exists($settingsFile)) {
+            $settings = json_decode(file_get_contents($settingsFile), true);
+            $runtimeExclusions = $settings['exclusions'] ?? [];
+        }
+
+        // Merge config and runtime exclusions
+        $excludedRoutes = array_unique(array_merge(
+            config('cms.exclusions.routes', []),
+            $runtimeExclusions['routes'] ?? []
+        ));
+
+        $excludedPrefixes = array_unique(array_merge(
+            config('cms.exclusions.prefixes', []),
+            $runtimeExclusions['prefixes'] ?? []
+        ));
+
+        $excludedNames = array_unique(array_merge(
+            config('cms.exclusions.names', []),
+            $runtimeExclusions['names'] ?? []
+        ));
+
+        // Check excluded routes (pattern matching)
+        foreach ($excludedRoutes as $pattern) {
+            if ($request->is($pattern)) {
+                return true;
+            }
+        }
+
+        // Check excluded prefixes
+        $path = $request->path();
+        foreach ($excludedPrefixes as $prefix) {
+            if (str_starts_with($path, $prefix . '/') || $path === $prefix) {
+                return true;
+            }
+        }
+
+        // Check excluded route names
+        $routeName = $request->route()?->getName();
+        if ($routeName) {
+            if (in_array($routeName, $excludedNames)) {
+                return true;
+            }
+        }
+
+        // Check excluded middleware groups
+        $route = $request->route();
+        if ($route) {
+            $excludedMiddlewares = config('cms.exclusions.middlewares', []);
+            $routeMiddlewares = $route->gatherMiddleware();
+
+            foreach ($excludedMiddlewares as $middleware) {
+                if (in_array($middleware, $routeMiddlewares)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

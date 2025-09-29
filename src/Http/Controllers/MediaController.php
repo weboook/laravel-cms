@@ -216,4 +216,238 @@ class MediaController
             ], 500);
         }
     }
+
+    /**
+     * Upload multiple images
+     */
+    public function uploadMultiple(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'images' => 'required|array',
+                'images.*' => 'required|image|mimes:jpeg,jpg,png,gif,webp,svg|max:10240',
+                'folder_id' => 'nullable|integer'
+            ]);
+
+            $uploadedMedia = [];
+            $folderId = $request->input('folder_id', null);
+
+            foreach ($request->file('images') as $file) {
+                $uploadData = $this->processImageUpload($file, $folderId);
+                if ($uploadData) {
+                    $uploadedMedia[] = $uploadData;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => count($uploadedMedia) . ' files uploaded successfully',
+                'media' => $uploadedMedia
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to upload multiple images', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload images: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Process single image upload
+     */
+    protected function processImageUpload($file, $folderId = null): ?array
+    {
+        try {
+            $disk = config('cms.media.disk', 'public');
+            $storagePath = config('cms.media.path', 'cms/media');
+
+            // Generate unique filename
+            $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $originalName = $file->getClientOriginalName();
+
+            // Store file
+            $path = $file->storeAs($storagePath, $filename, $disk);
+
+            // Get URL
+            $url = Storage::disk($disk)->url($path);
+
+            // Save to database
+            $mediaId = DB::table('cms_media')->insertGetId([
+                'filename' => $filename,
+                'original_name' => $originalName,
+                'path' => $path,
+                'url' => $url,
+                'disk' => $disk,
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'folder_id' => $folderId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return [
+                'id' => $mediaId,
+                'filename' => $filename,
+                'original_name' => $originalName,
+                'url' => $url,
+                'size' => $file->getSize(),
+                'mime_type' => $file->getMimeType()
+            ];
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to process image upload', [
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get folders list
+     */
+    public function getFolders(Request $request): JsonResponse
+    {
+        try {
+            $folders = DB::table('cms_folders')
+                ->orderBy('name', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'folders' => $folders
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get folders', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get folders'
+            ], 500);
+        }
+    }
+
+    /**
+     * Create folder
+     */
+    public function createFolder(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'parent_id' => 'nullable|integer'
+            ]);
+
+            $parentId = $request->input('parent_id', null);
+
+            // Check if parent folder exists
+            if ($parentId) {
+                $parentExists = DB::table('cms_folders')->where('id', $parentId)->exists();
+                if (!$parentExists) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Parent folder not found'
+                    ], 404);
+                }
+            }
+
+            // Create folder
+            $folderId = DB::table('cms_folders')->insertGetId([
+                'name' => $request->input('name'),
+                'parent_id' => $parentId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $this->logger->info('Folder created', [
+                'id' => $folderId,
+                'name' => $request->input('name')
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Folder created successfully',
+                'folder' => [
+                    'id' => $folderId,
+                    'name' => $request->input('name'),
+                    'parent_id' => $parentId
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create folder', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create folder: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete folder
+     */
+    public function deleteFolder($id): JsonResponse
+    {
+        try {
+            // Check if folder exists
+            $folder = DB::table('cms_folders')->where('id', $id)->first();
+            if (!$folder) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Folder not found'
+                ], 404);
+            }
+
+            // Check if folder has media
+            $hasMedia = DB::table('cms_media')->where('folder_id', $id)->exists();
+            if ($hasMedia) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete folder with media items'
+                ], 400);
+            }
+
+            // Check if folder has subfolders
+            $hasSubfolders = DB::table('cms_folders')->where('parent_id', $id)->exists();
+            if ($hasSubfolders) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete folder with subfolders'
+                ], 400);
+            }
+
+            // Delete folder
+            DB::table('cms_folders')->where('id', $id)->delete();
+
+            $this->logger->info('Folder deleted', [
+                'id' => $id,
+                'name' => $folder->name
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Folder deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to delete folder', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete folder'
+            ], 500);
+        }
+    }
 }
