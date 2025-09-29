@@ -551,6 +551,10 @@
             const modalContainer = document.getElementById('cms-modal-container');
             if (!toolbar || !modalContainer) return;
 
+            // Get base URL
+            const baseUrl = window.location.protocol + '//' + window.location.host;
+            const apiBaseUrl = baseUrl + '/api/cms';
+
             // State
             let currentPage = window.location.pathname;
             let currentLanguage = 'en';
@@ -612,7 +616,7 @@
 
             // Load Languages
             function loadLanguages() {
-                fetch('/api/cms/languages')
+                fetch(apiBaseUrl + '/languages')
                     .then(response => response.json())
                     .then(data => {
                         availableLanguages = data.available;
@@ -636,7 +640,7 @@
 
             // Load Pages
             function loadPages() {
-                fetch('/api/cms/pages')
+                fetch(apiBaseUrl + '/pages')
                     .then(response => response.json())
                     .then(data => {
                         availablePages = data.pages || [];
@@ -830,7 +834,7 @@
 
             // Load Settings
             function loadSettings() {
-                fetch('/api/cms/settings')
+                fetch(apiBaseUrl + '/settings')
                     .then(response => response.json())
                     .then(data => {
                         document.getElementById('cms-setting-enabled').checked = data.enabled;
@@ -854,7 +858,7 @@
                     }
                 };
 
-                fetch('/api/cms/settings', {
+                fetch(apiBaseUrl + '/settings', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
