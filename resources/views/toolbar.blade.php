@@ -955,7 +955,13 @@
                     return;
                 }
 
-                list.innerHTML = allPages.map(page => `
+                list.innerHTML = allPages.map(page => {
+                    // Filter out storage routes
+                    if (page.path && page.path.includes('/storage/')) {
+                        return '';
+                    }
+
+                    return `
                     <div class="cms-page-item ${page.is_template ? 'template' : ''} ${page.path === currentPage ? 'active' : ''}"
                          data-path="${page.path}"
                          data-template="${page.is_template}">
@@ -964,8 +970,8 @@
                             <div class="cms-page-item-path">${page.path}</div>
                         </div>
                         ${page.is_template ? '<span>Template</span>' : ''}
-                    </div>
-                `).join('');
+                    </div>`;
+                }).join('');
 
                 // Add click handlers
                 list.querySelectorAll('.cms-page-item').forEach(item => {

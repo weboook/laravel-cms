@@ -353,12 +353,13 @@ class InjectEditableMarkers
 
     /* Link, Button and Image specific styles */
     body.cms-edit-mode [data-cms-type="link"],
-    body.cms-edit-mode [data-cms-type="button"],
-    body.cms-edit-mode [data-cms-type="image"] {
+    body.cms-edit-mode [data-cms-type="button"] {
         position: relative;
     }
 
     body.cms-edit-mode [data-cms-type="image"] {
+        position: relative;
+        display: inline-block;
         outline: 2px dashed transparent;
         outline-offset: 4px;
         transition: all 0.2s ease;
@@ -391,9 +392,20 @@ class InjectEditableMarkers
         transition: all 0.2s ease;
     }
 
+    /* Adjust gear position for images */
+    body.cms-edit-mode [data-cms-type="image"] .cms-link-gear {
+        top: 10px;
+        right: 10px;
+        transform: none;
+    }
+
     .cms-link-gear:hover {
         background: #0052d4;
         transform: translateY(-50%) scale(1.1);
+    }
+
+    body.cms-edit-mode [data-cms-type="image"] .cms-link-gear:hover {
+        transform: scale(1.1);
     }
 
     .cms-link-gear svg {
