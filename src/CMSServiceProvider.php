@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Contracts\Http\Kernel;
 use Webook\LaravelCMS\Http\Middleware\InjectToolbar;
+use Webook\LaravelCMS\Http\Middleware\InjectEditableMarkers;
 
 class CMSServiceProvider extends ServiceProvider
 {
@@ -49,8 +50,9 @@ class CMSServiceProvider extends ServiceProvider
 
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'cms');
 
-        // Register the toolbar middleware
+        // Register the middlewares
         $kernel = $this->app->make(Kernel::class);
+        $kernel->pushMiddleware(InjectEditableMarkers::class);
         $kernel->pushMiddleware(InjectToolbar::class);
     }
 }

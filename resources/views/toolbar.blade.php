@@ -566,6 +566,10 @@
             init();
 
             function init() {
+                // Set default mode to preview
+                window.CMS.mode = 'preview';
+                document.body.classList.remove('cms-edit-mode');
+
                 loadLanguages();
                 loadPages();
                 setupEventListeners();
@@ -581,6 +585,20 @@
                         this.classList.add('active');
                         const mode = this.dataset.mode;
                         window.CMS.mode = mode;
+
+                        // Dispatch mode change event
+                        const event = new CustomEvent('cms:modeChanged', {
+                            detail: { mode: mode }
+                        });
+                        document.dispatchEvent(event);
+
+                        // Update body class
+                        if (mode === 'edit') {
+                            document.body.classList.add('cms-edit-mode');
+                        } else {
+                            document.body.classList.remove('cms-edit-mode');
+                        }
+
                         console.log('CMS Mode:', mode);
                     });
                 });
