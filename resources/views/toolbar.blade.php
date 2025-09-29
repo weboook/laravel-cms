@@ -1103,6 +1103,47 @@
         border-radius: 4px;
         cursor: pointer;
         margin-bottom: 4px;
+        position: relative;
+    }
+
+    .cms-media-folder-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+    }
+
+    .cms-media-folder-actions {
+        display: none;
+        gap: 4px;
+    }
+
+    .cms-media-folder:hover .cms-media-folder-actions {
+        display: flex;
+    }
+
+    .cms-media-folder-action {
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: transparent;
+        color: #999;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    .cms-media-folder-action:hover {
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+    }
+
+    .cms-media-folder-action svg {
+        width: 14px;
+        height: 14px;
     }
 
     .cms-media-folder:hover {
@@ -2244,19 +2285,56 @@
                     closeModal();
                 });
 
-                // Folder selection
+                // Folder selection and actions
                 document.addEventListener('click', function(e) {
-                    if (e.target.closest('.cms-media-folder')) {
+                    const folderAction = e.target.closest('.cms-media-folder-action');
+
+                    if (folderAction) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const action = folderAction.dataset.action;
+                        const folderId = folderAction.dataset.folderId;
+
+                        if (action === 'edit') {
+                            // TODO: Implement edit folder functionality
+                            console.log('Edit folder:', folderId);
+                        } else if (action === 'delete') {
+                            if (confirm('Are you sure you want to delete this folder?')) {
+                                deleteFolder(folderId);
+                            }
+                        }
+                    } else if (e.target.closest('.cms-media-folder')) {
                         const folder = e.target.closest('.cms-media-folder');
-                        selectFolder(folder);
+                        if (!e.target.closest('.cms-media-folder-actions')) {
+                            selectFolder(folder);
+                        }
                     }
                 });
 
                 // Media item selection
                 document.addEventListener('click', function(e) {
-                    if (e.target.closest('.cms-media-item')) {
-                        const item = e.target.closest('.cms-media-item');
-                        toggleMediaSelection(item);
+                    const mediaModal = e.target.closest('.cms-modal-assets');
+                    if (!mediaModal) return;
+
+                    const item = e.target.closest('.cms-media-item');
+                    const action = e.target.closest('.cms-media-item-action');
+
+                    if (action) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const actionType = action.dataset.action;
+
+                        if (actionType === 'view' && item) {
+                            // Open image in new tab
+                            window.open(item.dataset.url, '_blank');
+                        } else if (actionType === 'select' && item) {
+                            toggleMediaSelection(item);
+                        }
+                    } else if (item) {
+                        // In selection mode for image editor
+                        if (window.CMS.selectingImageForEditor) {
+                            toggleMediaSelection(item);
+                        }
                     }
                 });
 
@@ -2309,10 +2387,26 @@
                     folders.forEach(folder => {
                         html += `
                             <div class="cms-media-folder ${currentFolder === folder.id ? 'active' : ''}" data-folder-id="${folder.id}">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                                <span>${folder.name}</span>
+                                <div class="cms-media-folder-content">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                    </svg>
+                                    <span>${folder.name}</span>
+                                </div>
+                                <div class="cms-media-folder-actions">
+                                    <button class="cms-media-folder-action" data-action="edit" data-folder-id="${folder.id}" title="Edit Folder">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                    </button>
+                                    <button class="cms-media-folder-action" data-action="delete" data-folder-id="${folder.id}" title="Delete Folder">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     });
@@ -2490,6 +2584,33 @@
                 }
 
                 // Create folder
+                // Delete folder
+                function deleteFolder(folderId) {
+                    fetch(apiBaseUrl + '/media/folders/' + folderId, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('Folder deleted successfully', 'success');
+                            loadFolders();
+                            if (currentFolder == folderId) {
+                                currentFolder = 0;
+                                loadMedia();
+                            }
+                        } else {
+                            showToast(data.message || 'Failed to delete folder', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Failed to delete folder:', error);
+                        showToast('Failed to delete folder', 'error');
+                    });
+                }
+
                 function createFolder() {
                     const name = document.getElementById('cms-new-folder-name')?.value.trim();
                     const parentId = document.getElementById('cms-parent-folder')?.value || 0;

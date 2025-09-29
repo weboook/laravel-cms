@@ -3,6 +3,7 @@
 namespace Webook\LaravelCMS\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -225,7 +226,7 @@ class MediaController
     /**
      * Upload multiple images
      */
-    public function uploadMultiple(Request $request): JsonResponse
+    public function uploadMultiple(Request $request)
     {
         try {
             $request->validate([
@@ -315,7 +316,7 @@ class MediaController
     /**
      * Get folders list
      */
-    public function getFolders(Request $request): JsonResponse
+    public function getFolders(Request $request)
     {
         try {
             $folders = DB::table('cms_folders')
@@ -342,7 +343,7 @@ class MediaController
     /**
      * Create folder
      */
-    public function createFolder(Request $request): JsonResponse
+    public function createFolder(Request $request)
     {
         try {
             $request->validate([
@@ -401,7 +402,7 @@ class MediaController
     /**
      * Delete folder
      */
-    public function deleteFolder($id): JsonResponse
+    public function deleteFolder($id)
     {
         try {
             // Check if folder exists
