@@ -1995,8 +1995,9 @@
             function handleOpenImageEditor(e) {
                 const detail = e.detail;
 
-                // Store the element reference
+                // Store the element reference and original src
                 window.CMS.currentImageElement = detail.element;
+                window.CMS.originalImageSrc = detail.src || detail.element.getAttribute('src');
 
                 // Fill the form
                 document.getElementById('cms-image-alt').value = detail.alt || '';
@@ -2267,12 +2268,16 @@
                     }
                 });
 
-                // Create folder button
-                document.querySelector('.cms-btn-create-folder')?.addEventListener('click', function() {
-                    // Load folder options first
-                    loadFolderOptions();
-                    // Open the create folder modal
-                    openModal('create-folder');
+                // Create folder button - use event delegation
+                document.addEventListener('click', function(e) {
+                    if (e.target.closest('.cms-btn-create-folder')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Load folder options first
+                        loadFolderOptions();
+                        // Open the create folder modal
+                        openModal('create-folder');
+                    }
                 });
 
                 // Create folder submit
@@ -2724,7 +2729,7 @@
                                 alt: newAlt,
                                 title: newTitle
                             },
-                            originalContent: element.getAttribute('src'),
+                            originalContent: window.CMS.originalImageSrc || element.getAttribute('src'),
                             element: element
                         }
                     });
@@ -2742,7 +2747,7 @@
                                 alt: newAlt,
                                 title: newTitle
                             },
-                            originalContent: element.getAttribute('src'),
+                            originalContent: window.CMS.originalImageSrc || element.getAttribute('src'),
                             element: element
                         }
                     });
@@ -2784,7 +2789,7 @@
                                     alt: document.getElementById('cms-image-alt').value,
                                     title: document.getElementById('cms-image-title').value
                                 },
-                                originalContent: element.getAttribute('src'),
+                                originalContent: window.CMS.originalImageSrc || element.getAttribute('src'),
                                 element: element
                             }
                         });

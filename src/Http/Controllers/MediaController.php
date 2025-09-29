@@ -282,6 +282,18 @@ class MediaController
             // Get URL
             $url = Storage::disk($disk)->url($path);
 
+            // Get image dimensions if it's an image
+            $width = null;
+            $height = null;
+            $mimeType = $file->getMimeType();
+            if (strpos($mimeType, 'image/') === 0) {
+                $imageInfo = getimagesize($file->getRealPath());
+                if ($imageInfo) {
+                    $width = $imageInfo[0];
+                    $height = $imageInfo[1];
+                }
+            }
+
             // Save to database
             $mediaId = DB::table('cms_media')->insertGetId([
                 'filename' => $filename,
@@ -289,8 +301,11 @@ class MediaController
                 'path' => $path,
                 'url' => $url,
                 'disk' => $disk,
-                'mime_type' => $file->getMimeType(),
+                'mime_type' => $mimeType,
+                'extension' => $file->getClientOriginalExtension(),
                 'size' => $file->getSize(),
+                'width' => $width,
+                'height' => $height,
                 'folder_id' => $folderId,
                 'created_at' => now(),
                 'updated_at' => now(),
