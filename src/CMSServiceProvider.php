@@ -16,8 +16,15 @@ class CMSServiceProvider extends ServiceProvider
             __DIR__.'/../config/cms.php', 'cms'
         );
 
+        $this->mergeConfigFrom(
+            __DIR__.'/../config/cms-auth.php', 'cms'
+        );
+
+        // Register CMSAuthHandler as singleton
+        $this->app->singleton(\Webook\LaravelCMS\Services\CMSAuthHandler::class);
+
         $this->app->singleton('cms.toolbar', function ($app) {
-            return new InjectToolbar();
+            return new InjectToolbar($app->make(\Webook\LaravelCMS\Services\CMSAuthHandler::class));
         });
 
         // Register CMS services
@@ -30,6 +37,7 @@ class CMSServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/cms.php' => config_path('cms.php'),
+                __DIR__.'/../config/cms-auth.php' => config_path('cms-auth.php'),
             ], 'cms-config');
 
             $this->publishes([

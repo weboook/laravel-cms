@@ -5,9 +5,17 @@ namespace Webook\LaravelCMS\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
+use Webook\LaravelCMS\Services\CMSAuthHandler;
 
 class InjectToolbar
 {
+    protected $authHandler;
+
+    public function __construct(CMSAuthHandler $authHandler)
+    {
+        $this->authHandler = $authHandler;
+    }
+
     public function handle(Request $request, Closure $next)
     {
         $response = $next($request);
@@ -17,6 +25,11 @@ class InjectToolbar
         }
 
         if (!config('cms.toolbar.auto_inject', true)) {
+            return $response;
+        }
+
+        // Check if user has permission to access CMS
+        if (!$this->authHandler->shouldShowOnRoute($request)) {
             return $response;
         }
 
