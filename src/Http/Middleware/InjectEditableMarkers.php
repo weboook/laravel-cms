@@ -229,13 +229,18 @@ class InjectEditableMarkers
         position: relative;
     }
 
+    .cms-link-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
     .cms-link-gear {
         position: absolute;
         top: 50%;
-        right: -30px;
+        right: -35px;
         transform: translateY(-50%);
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         background: #0066ff;
         border-radius: 4px;
         display: none;
@@ -243,11 +248,13 @@ class InjectEditableMarkers
         justify-content: center;
         cursor: pointer;
         z-index: 10000;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        transition: all 0.2s ease;
     }
 
     .cms-link-gear:hover {
         background: #0052d4;
+        transform: translateY(-50%) scale(1.1);
     }
 
     .cms-link-gear svg {
@@ -256,9 +263,31 @@ class InjectEditableMarkers
         fill: white;
     }
 
+    /* Show gear on hover of link or when gear has hover */
     body.cms-edit-mode [data-cms-type="link"]:hover .cms-link-gear,
-    body.cms-edit-mode [data-cms-type="button"]:hover .cms-link-gear {
+    body.cms-edit-mode [data-cms-type="button"]:hover .cms-link-gear,
+    body.cms-edit-mode .cms-link-gear:hover,
+    body.cms-edit-mode .cms-link-gear.visible {
         display: flex;
+    }
+
+    /* Invisible bridge to maintain hover */
+    body.cms-edit-mode [data-cms-type="link"]::after,
+    body.cms-edit-mode [data-cms-type="button"]::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: -35px;
+        transform: translateY(-50%);
+        width: 40px;
+        height: 40px;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    body.cms-edit-mode [data-cms-type="link"]:hover::after,
+    body.cms-edit-mode [data-cms-type="button"]:hover::after {
+        pointer-events: auto;
     }
 
     body.cms-edit-mode [data-cms-editable]::before {
@@ -400,6 +429,41 @@ class InjectEditableMarkers
             gear.className = 'cms-link-gear';
             gear.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334zm0 5.334c-1.105 0-2-.896-2-2s.895-2 2-2 2 .896 2 2-.895 2-2 2zm7.04-2.404l1.313-.988c.185-.139.23-.386.119-.579l-1.24-2.148c-.11-.193-.359-.244-.534-.137l-1.540.617c-.449-.331-.949-.596-1.489-.784l-.234-1.644c-.038-.218-.237-.382-.456-.382h-2.478c-.219 0-.418.164-.456.382l-.234 1.644c-.540.188-1.04.453-1.489.784l-1.54-.617c-.175-.107-.424-.056-.534.137l-1.24 2.148c-.11.193-.066.44.119.579l1.313.988c-.05.261-.081.53-.081.809s.031.548.081.809l-1.313.988c-.185.139-.23.386-.119.579l1.24 2.148c.11.193.359.244.534.137l1.54-.617c.449.331.949.596 1.489.784l.234 1.644c.038.218.237.382.456.382h2.478c.219 0 .418-.164.456-.382l.234-1.644c.540-.188 1.04-.453 1.489-.784l1.54.617c.175.107.424.056.534-.137l1.24-2.148c.11-.193.066-.44-.119-.579l-1.313-.988c.05-.261.081-.53.081-.809s-.031-.548-.081-.809z"/></svg>';
             element.appendChild(gear);
+
+            // Add hover timeout handling
+            let hoverTimeout;
+            let isHovering = false;
+
+            // Show gear on element hover
+            element.addEventListener('mouseenter', function() {
+                clearTimeout(hoverTimeout);
+                gear.classList.add('visible');
+                isHovering = true;
+            });
+
+            element.addEventListener('mouseleave', function() {
+                isHovering = false;
+                // Delay hiding to allow moving to gear
+                hoverTimeout = setTimeout(() => {
+                    if (!gear.matches(':hover')) {
+                        gear.classList.remove('visible');
+                    }
+                }, 200);
+            });
+
+            // Keep gear visible when hovering gear itself
+            gear.addEventListener('mouseenter', function() {
+                clearTimeout(hoverTimeout);
+                gear.classList.add('visible');
+            });
+
+            gear.addEventListener('mouseleave', function() {
+                if (!isHovering) {
+                    hoverTimeout = setTimeout(() => {
+                        gear.classList.remove('visible');
+                    }, 200);
+                }
+            });
 
             // Add click handler to gear
             gear.addEventListener('click', function(e) {
