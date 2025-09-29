@@ -180,9 +180,17 @@ class ContentController extends Controller
      */
     protected function resolveFileFromUrl($url, $hint = null)
     {
+        // Remove hash fragment from URL
+        $url = strtok($url, '#');
+
         // Parse the URL
         $path = parse_url($url, PHP_URL_PATH);
         $path = trim($path, '/');
+
+        // If path is empty, assume it's the home page
+        if (empty($path) || $path === '') {
+            $path = 'index';
+        }
 
         // Common view paths to check
         $viewPaths = [
@@ -203,6 +211,17 @@ class ContentController extends Controller
             $bladeFile = $viewPath . '/' . str_replace('/', '.', $path) . '.blade.php';
             if (file_exists($bladeFile)) {
                 return $bladeFile;
+            }
+
+            // Check for home/index pages
+            if ($path === 'index' || empty($path)) {
+                $homeFiles = ['home.blade.php', 'index.blade.php', 'welcome.blade.php'];
+                foreach ($homeFiles as $homeFile) {
+                    $file = $viewPath . '/' . $homeFile;
+                    if (file_exists($file)) {
+                        return $file;
+                    }
+                }
             }
         }
 

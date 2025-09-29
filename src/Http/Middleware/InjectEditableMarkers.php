@@ -741,13 +741,13 @@ class InjectEditableMarkers
             element.contentEditable = true;
             element.focus();
 
-            // Place cursor at the end instead of selecting all
-            const range = document.createRange();
+            // Don't move cursor - let it stay where the user clicked
+            // Only set cursor position if no selection exists
             const selection = window.getSelection();
-            range.selectNodeContents(element);
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
+            if (selection.rangeCount === 0 || selection.isCollapsed) {
+                // Keep the cursor where it was clicked
+                // Don't manipulate the selection
+            }
 
             // Create toolbar
             const toolbar = createEditorToolbar(element);

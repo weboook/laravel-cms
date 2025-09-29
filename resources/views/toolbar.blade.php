@@ -1504,7 +1504,7 @@
                         element_id: change.id,
                         content: change.content || change,
                         type: change.type || 'text',
-                        page_url: window.location.href,
+                        page_url: window.location.href.split('#')[0], // Remove hash fragment
                         file_hint: null
                     })
                 })
