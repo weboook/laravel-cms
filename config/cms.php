@@ -43,4 +43,9 @@ return [
     ],
 
     'route_prefix' => 'cms',
+
+    'logging' => [
+        'enabled' => env('CMS_LOGGING_ENABLED', true),
+        'debug' => env('CMS_LOGGING_DEBUG', false),
+    ],
 ];

@@ -591,6 +591,7 @@
             let availableLanguages = [];
             let availablePages = [];
             let templatePages = [];
+            let pendingChanges = [];
 
             // Initialize
             init();
@@ -659,8 +660,7 @@
 
                 // Save button
                 toolbar.querySelector('.cms-btn-save')?.addEventListener('click', function() {
-                    console.log('Save clicked');
-                    // Save functionality will be implemented later
+                    saveAllChanges();
                 });
 
                 // Settings save
@@ -673,6 +673,9 @@
                 document.addEventListener('cms:openLinkEditor', handleOpenLinkEditor);
                 document.getElementById('cms-save-link')?.addEventListener('click', saveLinkChanges);
                 document.getElementById('cms-cancel-link')?.addEventListener('click', () => closeModal());
+
+                // Content change handler
+                document.addEventListener('cms:contentChanged', handleContentChanged);
             }
 
             // Load Languages
@@ -987,11 +990,131 @@
                 closeModal();
             }
 
+            // Handle content changed event
+            function handleContentChanged(e) {
+                const change = e.detail;
+
+                // Add to pending changes
+                const existingIndex = pendingChanges.findIndex(c => c.id === change.id);
+                if (existingIndex >= 0) {
+                    pendingChanges[existingIndex] = change;
+                } else {
+                    pendingChanges.push(change);
+                }
+
+                // Update save button to show pending changes
+                const saveBtn = toolbar.querySelector('.cms-btn-save');
+                if (saveBtn && pendingChanges.length > 0) {
+                    saveBtn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        <span>Save (${pendingChanges.length})</span>
+                    `;
+                    saveBtn.style.background = '#ff6600';
+                }
+            }
+
+            // Save all changes
+            function saveAllChanges() {
+                if (pendingChanges.length === 0) {
+                    alert('No changes to save');
+                    return;
+                }
+
+                const saveBtn = toolbar.querySelector('.cms-btn-save');
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<span>Saving...</span>';
+                }
+
+                // Save each change
+                Promise.all(pendingChanges.map(change => saveContentChange(change)))
+                    .then(results => {
+                        const successful = results.filter(r => r.success).length;
+                        const failed = results.filter(r => !r.success).length;
+
+                        if (failed > 0) {
+                            alert(`Saved ${successful} changes, ${failed} failed`);
+                        } else {
+                            // Clear pending changes
+                            pendingChanges = [];
+
+                            // Reset save button
+                            if (saveBtn) {
+                                saveBtn.disabled = false;
+                                saveBtn.innerHTML = `
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                        <polyline points="7 3 7 8 15 8"></polyline>
+                                    </svg>
+                                    <span>Saved!</span>
+                                `;
+                                saveBtn.style.background = '#00b341';
+
+                                setTimeout(() => {
+                                    saveBtn.innerHTML = `
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                            <polyline points="7 3 7 8 15 8"></polyline>
+                                        </svg>
+                                        <span>Save</span>
+                                    `;
+                                    saveBtn.style.background = '#0066ff';
+                                }, 2000);
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Save failed:', error);
+                        alert('Failed to save changes. Check console for details.');
+                        if (saveBtn) {
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = `
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save (${pendingChanges.length})</span>
+                            `;
+                        }
+                    });
+            }
+
+            // Save single content change
+            function saveContentChange(change) {
+                return fetch(apiBaseUrl + '/content/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify({
+                        element_id: change.id,
+                        content: change.content || change,
+                        type: change.type || 'text',
+                        page_url: window.location.href,
+                        file_hint: null
+                    })
+                })
+                .then(response => response.json())
+                .catch(error => {
+                    console.error('Error saving content:', error);
+                    return { success: false, error: error.message };
+                });
+            }
+
             // Make functions available globally
             window.CMS.openModal = openModal;
             window.CMS.closeModal = closeModal;
             window.CMS.navigateToPage = navigateToPage;
             window.CMS.switchLanguage = switchLanguage;
+            window.CMS.saveAllChanges = saveAllChanges;
         });
     })();
 </script>

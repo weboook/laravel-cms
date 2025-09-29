@@ -19,6 +19,10 @@ class CMSServiceProvider extends ServiceProvider
         $this->app->singleton('cms.toolbar', function ($app) {
             return new InjectToolbar();
         });
+
+        // Register CMS services
+        $this->app->singleton(\Webook\LaravelCMS\Services\CMSLogger::class);
+        $this->app->singleton(\Webook\LaravelCMS\Services\FileUpdater::class);
     }
 
     public function boot()

@@ -298,13 +298,13 @@ class InjectEditableMarkers
 
     .cms-editor-toolbar {
         position: absolute;
-        top: -40px;
+        top: -48px;
         left: 0;
         background: #1a1a1a;
         border-radius: 4px;
         padding: 4px;
         display: flex;
-        gap: 4px;
+        gap: 2px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         z-index: 10001;
     }
@@ -313,14 +313,35 @@ class InjectEditableMarkers
         background: transparent;
         border: none;
         color: #fff;
-        padding: 4px 8px;
+        padding: 6px 8px;
         cursor: pointer;
         border-radius: 2px;
         font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 30px;
+        justify-content: center;
     }
 
     .cms-editor-toolbar button:hover {
         background: #333;
+    }
+
+    .cms-editor-toolbar button.active {
+        background: #0066ff;
+    }
+
+    .cms-editor-toolbar .separator {
+        width: 1px;
+        background: #444;
+        margin: 4px 2px;
+    }
+
+    .cms-editor-toolbar button svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
     }
 </style>
 
@@ -442,10 +463,11 @@ class InjectEditableMarkers
             element.contentEditable = true;
             element.focus();
 
-            // Select all text
+            // Place cursor at the end instead of selecting all
             const range = document.createRange();
-            range.selectNodeContents(element);
             const selection = window.getSelection();
+            range.selectNodeContents(element);
+            range.collapse(false);
             selection.removeAllRanges();
             selection.addRange(range);
 
@@ -488,21 +510,94 @@ class InjectEditableMarkers
             const toolbar = document.createElement('div');
             toolbar.className = 'cms-editor-toolbar';
 
+            // Format buttons
+            const formatButtons = [
+                { command: 'bold', icon: 'B', title: 'Bold' },
+                { command: 'italic', icon: 'I', title: 'Italic' },
+                { command: 'underline', icon: 'U', title: 'Underline' },
+                { separator: true },
+                { command: 'createLink', icon: '🔗', title: 'Link', needsInput: true },
+                { command: 'unlink', icon: '⛓️‍💥', title: 'Unlink' },
+                { separator: true },
+                { command: 'formatBlock', value: 'h1', icon: 'H1', title: 'Heading 1' },
+                { command: 'formatBlock', value: 'h2', icon: 'H2', title: 'Heading 2' },
+                { command: 'formatBlock', value: 'p', icon: 'P', title: 'Paragraph' },
+                { separator: true },
+                { command: 'insertOrderedList', icon: '1.', title: 'Ordered List' },
+                { command: 'insertUnorderedList', icon: '•', title: 'Unordered List' },
+                { separator: true }
+            ];
+
+            // Add format buttons
+            formatButtons.forEach(btn => {
+                if (btn.separator) {
+                    const sep = document.createElement('div');
+                    sep.className = 'separator';
+                    toolbar.appendChild(sep);
+                } else {
+                    const button = document.createElement('button');
+                    button.innerHTML = btn.icon;
+                    button.title = btn.title;
+                    button.onclick = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        if (btn.needsInput && btn.command === 'createLink') {
+                            const url = prompt('Enter URL:');
+                            if (url) {
+                                document.execCommand(btn.command, false, url);
+                            }
+                        } else if (btn.value) {
+                            document.execCommand(btn.command, false, btn.value);
+                        } else {
+                            document.execCommand(btn.command, false, null);
+                        }
+
+                        // Check if button should be active
+                        updateToolbarState();
+                        element.focus();
+                    };
+                    toolbar.appendChild(button);
+                }
+            });
+
             // Save button
             const saveBtn = document.createElement('button');
-            saveBtn.textContent = '✓ Save';
-            saveBtn.onclick = () => saveAndCloseEditor(element, toolbar);
+            saveBtn.innerHTML = '✓ Save';
+            saveBtn.style.background = '#0066ff';
+            saveBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                saveAndCloseEditor(element, toolbar);
+            };
 
             // Cancel button
             const cancelBtn = document.createElement('button');
-            cancelBtn.textContent = '✕ Cancel';
-            cancelBtn.onclick = () => {
+            cancelBtn.innerHTML = '✕';
+            cancelBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 element.innerHTML = element.getAttribute('data-cms-original-html');
                 saveAndCloseEditor(element, toolbar);
             };
 
             toolbar.appendChild(saveBtn);
             toolbar.appendChild(cancelBtn);
+
+            // Update toolbar state function
+            function updateToolbarState() {
+                toolbar.querySelectorAll('button').forEach(btn => {
+                    const command = btn.dataset.command;
+                    if (command && document.queryCommandState(command)) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            // Listen for selection changes
+            document.addEventListener('selectionchange', updateToolbarState);
 
             // Position toolbar
             const rect = element.getBoundingClientRect();
