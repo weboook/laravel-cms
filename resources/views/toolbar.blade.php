@@ -1096,14 +1096,19 @@
     }
 
     .cms-media-folder {
-        display: flex;
-        align-items: center;
-        gap: 8px;
         padding: 8px 10px;
         border-radius: 4px;
         cursor: pointer;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
         position: relative;
+        transition: background 0.2s;
+    }
+
+    .cms-media-folder-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
     }
 
     .cms-media-folder-content {
@@ -1113,9 +1118,20 @@
         flex: 1;
     }
 
+    .cms-media-folder-content svg {
+        flex-shrink: 0;
+    }
+
+    .cms-media-folder-content span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .cms-media-folder-actions {
         display: none;
         gap: 4px;
+        flex-shrink: 0;
     }
 
     .cms-media-folder:hover .cms-media-folder-actions {
@@ -2443,43 +2459,76 @@
                     const container = document.getElementById('cms-media-folders');
                     if (!container) return;
 
-                    let html = `
-                        <div class="cms-media-folder ${currentFolder === 0 ? 'active' : ''}" data-folder-id="0">
+                    // Clear container
+                    container.innerHTML = '';
+
+                    // Create "All Media" folder item
+                    const allMediaItem = document.createElement('div');
+                    allMediaItem.className = 'cms-media-folder';
+                    if (currentFolder === 0) allMediaItem.classList.add('active');
+                    allMediaItem.dataset.folderId = '0';
+
+                    const allMediaContent = document.createElement('div');
+                    allMediaContent.className = 'cms-media-folder-content';
+                    allMediaContent.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <span>All Media</span>
+                    `;
+                    allMediaItem.appendChild(allMediaContent);
+                    container.appendChild(allMediaItem);
+
+                    // Create folder items
+                    folders.forEach(folder => {
+                        const folderItem = document.createElement('div');
+                        folderItem.className = 'cms-media-folder';
+                        if (currentFolder === folder.id) folderItem.classList.add('active');
+                        folderItem.dataset.folderId = folder.id;
+
+                        // Apply indentation for nested folders
+                        const level = folder.level || 0;
+                        if (level > 0) {
+                            folderItem.style.paddingLeft = `${20 * level}px`;
+                        }
+
+                        // Create content wrapper
+                        const contentWrapper = document.createElement('div');
+                        contentWrapper.className = 'cms-media-folder-inner';
+
+                        // Create folder content
+                        const folderContent = document.createElement('div');
+                        folderContent.className = 'cms-media-folder-content';
+                        folderContent.innerHTML = `
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                             </svg>
-                            <span>All Media</span>
-                        </div>
-                    `;
-
-                    folders.forEach(folder => {
-                        html += `
-                            <div class="cms-media-folder ${currentFolder === folder.id ? 'active' : ''}" data-folder-id="${folder.id}">
-                                <div class="cms-media-folder-content">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                    </svg>
-                                    <span>${folder.name}</span>
-                                </div>
-                                <div class="cms-media-folder-actions">
-                                    <button class="cms-media-folder-action" data-action="edit" data-folder-id="${folder.id}" title="Edit Folder">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                        </svg>
-                                    </button>
-                                    <button class="cms-media-folder-action" data-action="delete" data-folder-id="${folder.id}" title="Delete Folder">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
+                            <span>${folder.name}</span>
                         `;
-                    });
 
-                    container.innerHTML = html;
+                        // Create actions
+                        const folderActions = document.createElement('div');
+                        folderActions.className = 'cms-media-folder-actions';
+                        folderActions.innerHTML = `
+                            <button class="cms-media-folder-action" data-action="edit" data-folder-id="${folder.id}" title="Edit Folder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                            </button>
+                            <button class="cms-media-folder-action" data-action="delete" data-folder-id="${folder.id}" title="Delete Folder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        `;
+
+                        contentWrapper.appendChild(folderContent);
+                        contentWrapper.appendChild(folderActions);
+                        folderItem.appendChild(contentWrapper);
+                        container.appendChild(folderItem);
+                    });
                 }
 
                 // Select folder
