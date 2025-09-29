@@ -2681,7 +2681,12 @@
 
                 function createFolder() {
                     const name = document.getElementById('cms-new-folder-name')?.value.trim();
-                    const parentId = document.getElementById('cms-parent-folder')?.value || 0;
+                    let parentId = document.getElementById('cms-parent-folder')?.value;
+
+                    // Convert "0" or empty to null for root folders
+                    if (!parentId || parentId === '0' || parentId === 0) {
+                        parentId = null;
+                    }
 
                     if (!name) {
                         showToast('Please enter a folder name', 'warning');

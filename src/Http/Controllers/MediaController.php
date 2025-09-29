@@ -366,10 +366,15 @@ class MediaController
                 'parent_id' => 'nullable|integer'
             ]);
 
-            $parentId = $request->input('parent_id', null);
+            $parentId = $request->input('parent_id');
+
+            // Convert 0 to null for root folders
+            if ($parentId === 0 || $parentId === '0') {
+                $parentId = null;
+            }
 
             // Check if parent folder exists
-            if ($parentId) {
+            if ($parentId !== null) {
                 $parentExists = DB::table('cms_folders')->where('id', $parentId)->exists();
                 if (!$parentExists) {
                     return response()->json([
