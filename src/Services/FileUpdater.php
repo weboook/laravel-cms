@@ -3,6 +3,7 @@
 namespace Webook\LaravelCMS\Services;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Artisan;
 use DOMDocument;
 use DOMXPath;
 use Exception;
@@ -44,6 +45,11 @@ class FileUpdater
 
             // Write updated content
             File::put($filePath, $updatedContent);
+
+            // Clear view cache if it's a blade file
+            if (str_ends_with($filePath, '.blade.php')) {
+                $this->clearViewCache($filePath);
+            }
 
             // Log the update
             $this->logger->logContentChange(
@@ -105,6 +111,11 @@ class FileUpdater
             }
 
             File::put($filePath, $updatedContent);
+
+            // Clear view cache if it's a blade file
+            if (str_ends_with($filePath, '.blade.php')) {
+                $this->clearViewCache($filePath);
+            }
 
             return [
                 'success' => true,
@@ -334,5 +345,47 @@ class FileUpdater
         }
 
         return array_reverse($backups);
+    }
+
+    /**
+     * Clear Laravel view cache for a specific file
+     */
+    protected function clearViewCache($filePath)
+    {
+        try {
+            // Get the view name from the file path
+            $viewsPath = resource_path('views');
+            $relativePath = str_replace($viewsPath . '/', '', $filePath);
+            $viewName = str_replace('.blade.php', '', $relativePath);
+            $viewName = str_replace('/', '.', $viewName);
+
+            // Clear compiled view cache
+            $compiledPath = storage_path('framework/views');
+            $compiledFiles = File::glob($compiledPath . '/*.php');
+
+            foreach ($compiledFiles as $compiledFile) {
+                // Read the compiled file to check if it's for our view
+                $content = File::get($compiledFile);
+                if (strpos($content, $relativePath) !== false || strpos($content, $viewName) !== false) {
+                    File::delete($compiledFile);
+                    $this->logger->info('Cleared compiled view cache', [
+                        'view' => $viewName,
+                        'compiled' => $compiledFile
+                    ]);
+                }
+            }
+
+            // Also try to clear all view cache if available
+            if (function_exists('artisan')) {
+                \Artisan::call('view:clear');
+            }
+
+        } catch (Exception $e) {
+            // Log but don't fail if cache clearing fails
+            $this->logger->warning('Could not clear view cache', [
+                'file' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }
