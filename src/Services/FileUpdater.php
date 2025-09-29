@@ -302,6 +302,61 @@ class FileUpdater
                     return $content;
                 }
 
+                // If data-cms-id not in source, but we have it from the element
+                // Try to match by original src and add the data-cms-id to the file
+                if (str_starts_with($elementId, 'img-')) {
+                    // This is an auto-generated ID, find by original content
+                    if ($originalContent && !empty($originalContent)) {
+                        // Find the image by its current src
+                        $escapedSrc = preg_quote($originalContent, '/');
+                        $pattern = '/<img[^>]*src=["\']' . $escapedSrc . '["\'][^>]*>/i';
+
+                        if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                            $imgTag = $matches[0][0];
+                            $imgPos = $matches[0][1];
+
+                            // Add data-cms-id if not present
+                            if (!str_contains($imgTag, 'data-cms-id')) {
+                                $imgTag = str_replace('<img', '<img data-cms-id="' . $elementId . '"', $imgTag);
+                            }
+
+                            // Update src
+                            $newImgTag = preg_replace(
+                                '/src=["\'][^"\']*["\']/',
+                                'src="' . $newContent['src'] . '"',
+                                $imgTag
+                            );
+
+                            // Update alt if provided
+                            if (isset($newContent['alt'])) {
+                                if (preg_match('/alt=["\'][^"\']*["\']/', $newImgTag)) {
+                                    $newImgTag = preg_replace(
+                                        '/alt=["\'][^"\']*["\']/',
+                                        'alt="' . $newContent['alt'] . '"',
+                                        $newImgTag
+                                    );
+                                } else {
+                                    $newImgTag = preg_replace(
+                                        '/<img/',
+                                        '<img alt="' . $newContent['alt'] . '"',
+                                        $newImgTag
+                                    );
+                                }
+                            }
+
+                            $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
+
+                            $this->logger->info('Updated image by original src and added data-cms-id', [
+                                'element_id' => $elementId,
+                                'original_src' => $originalContent,
+                                'new_src' => $newContent['src']
+                            ]);
+
+                            return $content;
+                        }
+                    }
+                }
+
                 // If no data-cms-id found, try to use original content to find the specific image
                 if ($originalContent && !empty($originalContent)) {
                     // Find all img tags with their positions
