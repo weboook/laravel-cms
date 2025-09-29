@@ -379,9 +379,21 @@ class MediaController
                 }
             }
 
-            // Create folder
+            // Create folder with slug
+            $name = $request->input('name');
+            $slug = Str::slug($name);
+
+            // Ensure slug is unique
+            $baseSlug = $slug;
+            $counter = 1;
+            while (DB::table('cms_folders')->where('slug', $slug)->exists()) {
+                $slug = $baseSlug . '-' . $counter;
+                $counter++;
+            }
+
             $folderId = DB::table('cms_folders')->insertGetId([
-                'name' => $request->input('name'),
+                'name' => $name,
+                'slug' => $slug,
                 'parent_id' => $parentId,
                 'created_at' => now(),
                 'updated_at' => now(),
