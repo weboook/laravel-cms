@@ -1,3 +1,6 @@
+{{-- Toast Notification Container --}}
+<div id="cms-toast-container" class="cms-toast-container"></div>
+
 <div id="cms-toolbar" class="cms-toolbar">
     <div class="cms-toolbar-container">
         {{-- Left Section: Edit/Preview Mode Toggle --}}
@@ -551,11 +554,123 @@
         border-radius: 8px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
         width: 90%;
-        max-width: 600px;
+        max-width: 800px;
         max-height: 80vh;
         display: flex;
         flex-direction: column;
         color: #e0e0e0;
+    }
+
+    /* Wider modals for image editor and asset library */
+    .cms-modal-assets,
+    .cms-modal-image-editor {
+        max-width: 1200px;
+    }
+
+    /* Toast Notification Styles */
+    .cms-toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 999999;
+        pointer-events: none;
+    }
+
+    .cms-toast {
+        background: #2a2a2a;
+        color: #fff;
+        padding: 16px 20px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        min-width: 300px;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        pointer-events: auto;
+        animation: slideIn 0.3s ease-out;
+        position: relative;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+
+    .cms-toast.removing {
+        animation: slideOut 0.3s ease-out forwards;
+    }
+
+    .cms-toast-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+    }
+
+    .cms-toast-content {
+        flex: 1;
+    }
+
+    .cms-toast-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .cms-toast-message {
+        font-size: 14px;
+        opacity: 0.9;
+    }
+
+    .cms-toast-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        padding: 4px;
+        line-height: 1;
+        font-size: 18px;
+    }
+
+    .cms-toast-close:hover {
+        color: #fff;
+    }
+
+    /* Toast variants */
+    .cms-toast-success {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    }
+
+    .cms-toast-error {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    }
+
+    .cms-toast-warning {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    }
+
+    .cms-toast-info {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
     }
 
     .cms-modal-header {
@@ -1166,6 +1281,69 @@
                 loadLanguages();
                 loadPages();
                 setupEventListeners();
+                setupToastSystem();
+            }
+
+            // Toast Notification System
+            function setupToastSystem() {
+                window.showToast = function(message, type = 'info', title = null) {
+                    const container = document.getElementById('cms-toast-container');
+                    if (!container) return;
+
+                    const toast = document.createElement('div');
+                    toast.className = `cms-toast cms-toast-${type}`;
+
+                    // Icons for different types
+                    const icons = {
+                        success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+                        error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+                        warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+                        info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+                    };
+
+                    // Default titles
+                    const defaultTitles = {
+                        success: 'Success',
+                        error: 'Error',
+                        warning: 'Warning',
+                        info: 'Info'
+                    };
+
+                    const finalTitle = title || defaultTitles[type] || 'Notification';
+
+                    toast.innerHTML = `
+                        <div class="cms-toast-icon">
+                            ${icons[type] || icons.info}
+                        </div>
+                        <div class="cms-toast-content">
+                            <div class="cms-toast-title">${finalTitle}</div>
+                            <div class="cms-toast-message">${message}</div>
+                        </div>
+                        <button class="cms-toast-close">&times;</button>
+                    `;
+
+                    // Add close functionality
+                    const closeBtn = toast.querySelector('.cms-toast-close');
+                    closeBtn.addEventListener('click', function() {
+                        removeToast(toast);
+                    });
+
+                    container.appendChild(toast);
+
+                    // Auto remove after 5 seconds
+                    setTimeout(() => {
+                        removeToast(toast);
+                    }, 5000);
+                };
+
+                function removeToast(toast) {
+                    if (!toast || toast.classList.contains('removing')) return;
+
+                    toast.classList.add('removing');
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 300);
+                }
             }
 
             // Event Listeners
@@ -1806,13 +1984,13 @@
                 function handleFile(file) {
                     // Validate file type
                     if (!file.type.startsWith('image/')) {
-                        alert('Please select an image file');
+                        showToast('Please select an image file', 'warning');
                         return;
                     }
 
                     // Validate file size (10MB)
                     if (file.size > 10 * 1024 * 1024) {
-                        alert('File size must be less than 10MB');
+                        showToast('File size must be less than 10MB', 'warning');
                         return;
                     }
 
@@ -2095,15 +2273,16 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            showToast('Files uploaded successfully', 'success');
                             loadMedia();
                         } else {
-                            alert('Upload failed: ' + (data.message || 'Unknown error'));
+                            showToast('Upload failed: ' + (data.message || 'Unknown error'), 'error');
                             loadMedia();
                         }
                     })
                     .catch(error => {
                         console.error('Upload failed:', error);
-                        alert('Upload failed. Please try again.');
+                        showToast('Upload failed. Please try again.', 'error');
                         loadMedia();
                     });
                 }
@@ -2126,7 +2305,7 @@
                     const parentId = document.getElementById('cms-parent-folder')?.value || 0;
 
                     if (!name) {
-                        alert('Please enter a folder name');
+                        showToast('Please enter a folder name', 'warning');
                         return;
                     }
 
@@ -2144,16 +2323,17 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            showToast('Folder created successfully', 'success');
                             loadFolders();
                             closeModal();
                             document.getElementById('cms-new-folder-name').value = '';
                         } else {
-                            alert('Failed to create folder: ' + (data.message || 'Unknown error'));
+                            showToast('Failed to create folder: ' + (data.message || 'Unknown error'), 'error');
                         }
                     })
                     .catch(error => {
                         console.error('Failed to create folder:', error);
-                        alert('Failed to create folder. Please try again.');
+                        showToast('Failed to create folder. Please try again.', 'error');
                     });
                 }
 
@@ -2162,14 +2342,14 @@
                     const selected = document.querySelectorAll('.cms-media-item.selected');
 
                     if (selected.length === 0) {
-                        alert('Please select at least one image');
+                        showToast('Please select at least one image', 'warning');
                         return;
                     }
 
                     // Check if we're selecting for the image editor
                     if (window.CMS.selectingImageForEditor) {
                         if (selected.length > 1) {
-                            alert('Please select only one image for the editor');
+                            showToast('Please select only one image for the editor', 'warning');
                             return;
                         }
 
@@ -2289,12 +2469,12 @@
 
                         closeModal();
                     } else {
-                        alert('Failed to upload image: ' + (data.message || 'Unknown error'));
+                        showToast('Failed to upload image: ' + (data.message || 'Unknown error'), 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Upload error:', error);
-                    alert('Failed to upload image');
+                    showToast('Failed to upload image', 'error');
                 })
                 .finally(() => {
                     saveBtn.textContent = originalText;
@@ -2332,7 +2512,7 @@
             // Save all changes
             function saveAllChanges() {
                 if (pendingChanges.length === 0) {
-                    alert('No changes to save');
+                    showToast('No changes to save', 'info');
                     return;
                 }
 
@@ -2349,7 +2529,7 @@
                         const failed = results.filter(r => !r.success).length;
 
                         if (failed > 0) {
-                            alert(`Saved ${successful} changes, ${failed} failed`);
+                            showToast(`Saved ${successful} changes, ${failed} failed`, failed > 0 ? 'warning' : 'success');
                         } else {
                             // Clear pending changes
                             pendingChanges = [];
@@ -2379,11 +2559,19 @@
                                     saveBtn.style.background = '#0066ff';
                                 }, 2000);
                             }
+
+                            // Show success toast
+                            showToast(`All ${successful} changes saved successfully!`, 'success');
+
+                            // Reload after delay to show toast
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1500);
                         }
                     })
                     .catch(error => {
                         console.error('Save failed:', error);
-                        alert('Failed to save changes. Check console for details.');
+                        showToast('Failed to save changes. Check console for details.', 'error');
                         if (saveBtn) {
                             saveBtn.disabled = false;
                             saveBtn.innerHTML = `
