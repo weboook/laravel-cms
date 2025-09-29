@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="test-token">
+    <title>Media Library Test - Laravel CMS</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="resources/css/cms-variables.css">
+    <link rel="stylesheet" href="resources/css/cms-asset-library.css">
+    <link rel="stylesheet" href="resources/css/dropzone-integration.css">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #0073aa;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #005177;
+        }
+
+        .btn-secondary {
+            background: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        .selected-assets {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+
+        .selected-assets h3 {
+            margin-top: 0;
+            color: #666;
+        }
+
+        .asset-preview {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+
+        .asset-preview img {
+            max-width: 150px;
+            max-height: 150px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+            background: white;
+        }
+
+        .asset-preview .filename {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .status-message {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        /* Icon placeholders */
+        .icon-browse::before { content: "📁"; }
+        .icon-upload::before { content: "⬆️"; }
+        .icon-gallery::before { content: "🖼️"; }
+        .icon-close::before { content: "✕"; }
+        .icon-clear::before { content: "✕"; }
+        .icon-grid::before { content: "⊞"; }
+        .icon-list::before { content: "☰"; }
+        .icon-cloud-upload::before { content: "☁️"; }
+        .icon-file::before { content: "📄"; }
+        .icon-check::before { content: "✓"; }
+        .icon-error::before { content: "⚠️"; }
+        .icon-copy::before { content: "📋"; }
+        .icon-edit::before { content: "✏️"; }
+        .icon-replace::before { content: "🔄"; }
+        .icon-download::before { content: "⬇️"; }
+        .icon-duplicate::before { content: "📑"; }
+        .icon-star::before { content: "⭐"; }
+        .icon-trash::before { content: "🗑️"; }
+        .icon-empty::before { content: "📭"; }
+        .icon-view::before { content: "👁️"; }
+        .icon-select::before { content: "✔️"; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Media Library Test</h1>
+
+        <div class="status-message" id="statusMessage"></div>
+
+        <div class="test-buttons">
+            <button class="btn" onclick="openMediaLibrary('single')">
+                Open Media Library (Single Selection)
+            </button>
+            <button class="btn" onclick="openMediaLibrary('multiple')">
+                Open Media Library (Multiple Selection)
+            </button>
+            <button class="btn" onclick="openMediaLibrary('gallery')">
+                Open Media Library (Gallery Mode)
+            </button>
+            <button class="btn btn-secondary" onclick="openMediaLibrary('single', 'image')">
+                Select Image Only
+            </button>
+            <button class="btn btn-secondary" onclick="openMediaLibrary('single', 'video')">
+                Select Video Only
+            </button>
+            <button class="btn btn-secondary" onclick="openMediaLibrary('single', 'document')">
+                Select Document Only
+            </button>
+        </div>
+
+        <div class="selected-assets">
+            <h3>Selected Assets</h3>
+            <div id="selectedAssetsContainer">
+                <p style="color: #999;">No assets selected yet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://unpkg.com/dropzone@6.0.0-beta.2/dist/basic.js"></script>
+    <script src="resources/js/components/AssetLibrary.js"></script>
+    <script src="resources/js/components/DropzoneIntegration.js"></script>
+
+    <script>
+        // Global variable to store the current library instance
+        let currentLibrary = null;
+
+        // Mock some test data for demonstration
+        const mockAssets = [
+            {
+                id: 1,
+                type: 'image',
+                url: 'https://via.placeholder.com/300x200/0073aa/ffffff?text=Image+1',
+                thumbnails: {
+                    small: 'https://via.placeholder.com/150x100/0073aa/ffffff?text=Image+1',
+                    medium: 'https://via.placeholder.com/300x200/0073aa/ffffff?text=Image+1'
+                },
+                filename: 'sample-image-1.jpg',
+                title: 'Sample Image 1',
+                alt_text: 'A sample image',
+                size: 245760,
+                mime_type: 'image/jpeg',
+                width: 1920,
+                height: 1080,
+                created_at: '2024-01-15T10:00:00Z'
+            },
+            {
+                id: 2,
+                type: 'image',
+                url: 'https://via.placeholder.com/300x200/00a0d2/ffffff?text=Image+2',
+                thumbnails: {
+                    small: 'https://via.placeholder.com/150x100/00a0d2/ffffff?text=Image+2',
+                    medium: 'https://via.placeholder.com/300x200/00a0d2/ffffff?text=Image+2'
+                },
+                filename: 'sample-image-2.jpg',
+                title: 'Sample Image 2',
+                alt_text: 'Another sample image',
+                size: 189440,
+                mime_type: 'image/jpeg',
+                width: 1920,
+                height: 1080,
+                created_at: '2024-01-14T10:00:00Z'
+            },
+            {
+                id: 3,
+                type: 'document',
+                url: '#',
+                filename: 'document.pdf',
+                title: 'Sample Document',
+                size: 1048576,
+                mime_type: 'application/pdf',
+                extension: 'pdf',
+                created_at: '2024-01-13T10:00:00Z'
+            },
+            {
+                id: 4,
+                type: 'video',
+                url: '#',
+                filename: 'sample-video.mp4',
+                title: 'Sample Video',
+                size: 5242880,
+                mime_type: 'video/mp4',
+                created_at: '2024-01-12T10:00:00Z'
+            }
+        ];
+
+        // Mock API endpoints
+        window.fetch = new Proxy(window.fetch, {
+            apply: function(target, thisArg, argumentsList) {
+                const [url, options] = argumentsList;
+
+                // Mock asset loading
+                if (url && url.includes('/cms/api/assets')) {
+                    return Promise.resolve({
+                        ok: true,
+                        json: () => Promise.resolve({
+                            success: true,
+                            data: mockAssets,
+                            meta: {
+                                total: mockAssets.length,
+                                per_page: 20,
+                                current_page: 1,
+                                last_page: 1
+                            }
+                        })
+                    });
+                }
+
+                // Mock folder loading
+                if (url && url.includes('/cms/api/folders')) {
+                    return Promise.resolve({
+                        ok: true,
+                        json: () => Promise.resolve({
+                            success: true,
+                            data: [
+                                { id: 1, name: 'Images', parent_id: null },
+                                { id: 2, name: 'Documents', parent_id: null },
+                                { id: 3, name: 'Videos', parent_id: null }
+                            ]
+                        })
+                    });
+                }
+
+                // Mock upload
+                if (url && url.includes('/cms/api/assets/upload')) {
+                    return new Promise((resolve) => {
+                        setTimeout(() => {
+                            resolve({
+                                ok: true,
+                                json: () => Promise.resolve({
+                                    success: true,
+                                    data: {
+                                        id: Date.now(),
+                                        type: 'image',
+                                        url: 'https://via.placeholder.com/300x200/46b450/ffffff?text=New+Upload',
+                                        thumbnails: {
+                                            small: 'https://via.placeholder.com/150x100/46b450/ffffff?text=New+Upload',
+                                            medium: 'https://via.placeholder.com/300x200/46b450/ffffff?text=New+Upload'
+                                        },
+                                        filename: 'uploaded-file.jpg',
+                                        title: 'Uploaded File',
+                                        size: 123456,
+                                        mime_type: 'image/jpeg',
+                                        created_at: new Date().toISOString()
+                                    }
+                                })
+                            });
+                        }, 1000); // Simulate upload delay
+                    });
+                }
+
+                // Fallback to original fetch
+                return target.apply(thisArg, argumentsList);
+            }
+        });
+
+        function openMediaLibrary(mode = 'single', type = 'all') {
+            // Clean up previous instance
+            if (currentLibrary) {
+                currentLibrary.destroy();
+            }
+
+            // Create new library instance
+            currentLibrary = new AssetLibrary({
+                mode: mode,
+                type: type,
+                allowUpload: true,
+                allowDelete: false,
+                allowEdit: true,
+                onSelect: handleAssetSelection,
+                onClose: handleLibraryClose
+            });
+
+            // Open the library
+            currentLibrary.open();
+
+            showStatus(`Media Library opened in ${mode} mode`, 'info');
+        }
+
+        function handleAssetSelection(assets) {
+            console.log('Assets selected:', assets);
+
+            const container = document.getElementById('selectedAssetsContainer');
+            container.innerHTML = '';
+
+            if (Array.isArray(assets)) {
+                assets.forEach(asset => displayAsset(asset, container));
+                showStatus(`${assets.length} asset(s) selected`, 'success');
+            } else if (assets) {
+                displayAsset(assets, container);
+                showStatus('Asset selected', 'success');
+            }
+        }
+
+        function displayAsset(asset, container) {
+            const preview = document.createElement('div');
+            preview.className = 'asset-preview';
+
+            if (asset.type === 'image') {
+                preview.innerHTML = `
+                    <img src="${asset.url}" alt="${asset.alt_text || asset.filename}">
+                    <div class="filename">${asset.filename}</div>
+                `;
+            } else {
+                preview.innerHTML = `
+                    <div style="padding: 20px; background: #f0f0f0; border-radius: 4px;">
+                        <strong>${asset.type.toUpperCase()}</strong><br>
+                        ${asset.filename}
+                    </div>
+                `;
+            }
+
+            container.appendChild(preview);
+        }
+
+        function handleLibraryClose() {
+            console.log('Media Library closed');
+            showStatus('Media Library closed', 'info');
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.className = `status-message ${type}`;
+            statusElement.style.display = 'block';
+
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 3000);
+        }
+
+        // Add destroy method if not present
+        if (typeof AssetLibrary !== 'undefined' && !AssetLibrary.prototype.destroy) {
+            AssetLibrary.prototype.destroy = function() {
+                if (this.modal && this.modal.parentNode) {
+                    this.modal.remove();
+                }
+                if (this.dropzoneIntegration) {
+                    this.dropzoneIntegration.destroy();
+                }
+                this.isDestroyed = true;
+            };
+        }
+    </script>
+</body>
+</html>

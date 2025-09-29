@@ -1,0 +1,138 @@
+{
+  "name": "laravel-cms-editor",
+  "version": "1.0.0",
+  "description": "Modern CMS editor with advanced theming and accessibility",
+  "private": true,
+  "scripts": {
+    "dev": "npm run development",
+    "development": "mix",
+    "watch": "mix watch",
+    "watch-poll": "mix watch -- --watch-options-poll=1000",
+    "hot": "mix watch --hot",
+    "prod": "npm run production",
+    "production": "NODE_ENV=production mix --production",
+    "lint:css": "stylelint 'resources/css/**/*.css' --fix",
+    "lint:js": "eslint resources/js --ext .js,.vue --fix",
+    "test:css": "npm run lint:css && postcss resources/css/cms-editor.css --output /dev/null",
+    "build:critical": "critical src/index.html --base public --dest css/critical.css --dimensions 1200x900,768x1024,320x568",
+    "analyze": "NODE_ENV=production mix --production --analyze",
+    "size-check": "bundlesize",
+    "clean": "rimraf public/css public/js public/mix-manifest.json"
+  },
+  "devDependencies": {
+    "@fullhuman/postcss-purgecss": "^5.0.0",
+    "autoprefixer": "^10.4.16",
+    "browser-sync": "^2.29.3",
+    "browser-sync-webpack-plugin": "^2.3.0",
+    "bundlesize": "^0.18.1",
+    "critical": "^6.1.0",
+    "critical-css-webpack-plugin": "^2.1.0",
+    "cross-env": "^7.0.3",
+    "css-loader": "^6.8.1",
+    "cssnano": "^6.0.1",
+    "eslint": "^8.54.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-vue": "^9.18.1",
+    "laravel-mix": "^6.0.49",
+    "postcss": "^8.4.31",
+    "postcss-cli": "^10.1.0",
+    "postcss-custom-properties": "^13.3.2",
+    "postcss-import": "^15.1.0",
+    "postcss-loader": "^7.3.3",
+    "postcss-nesting": "^12.0.1",
+    "resolve-url-loader": "^5.0.0",
+    "rimraf": "^5.0.5",
+    "sass": "^1.69.5",
+    "sass-loader": "^13.3.2",
+    "style-loader": "^3.3.3",
+    "stylelint": "^15.11.0",
+    "stylelint-config-standard": "^34.0.0",
+    "vue": "^3.3.8",
+    "vue-loader": "^17.3.1",
+    "webpack-bundle-analyzer": "^4.9.1"
+  },
+  "dependencies": {
+    "alpinejs": "^3.13.3",
+    "axios": "^1.6.1",
+    "dropzone": "^6.0.0-beta.2",
+    "lodash": "^4.17.21"
+  },
+  "bundlesize": [
+    {
+      "path": "./public/css/cms-editor.css",
+      "maxSize": "150kb",
+      "compression": "gzip"
+    },
+    {
+      "path": "./public/css/critical.css",
+      "maxSize": "20kb",
+      "compression": "gzip"
+    },
+    {
+      "path": "./public/js/cms/app.js",
+      "maxSize": "100kb",
+      "compression": "gzip"
+    }
+  ],
+  "stylelint": {
+    "extends": "stylelint-config-standard",
+    "rules": {
+      "custom-property-pattern": "^cms-[a-z][a-zA-Z0-9]*(-[a-z][a-zA-Z0-9]*)*$",
+      "selector-class-pattern": "^cms-[a-z][a-zA-Z0-9]*(-[a-z][a-zA-Z0-9]*)*$",
+      "no-descending-specificity": null,
+      "declaration-block-trailing-semicolon": "always",
+      "block-closing-brace-newline-after": "always",
+      "rule-empty-line-before": ["always", {
+        "except": ["first-nested"],
+        "ignore": ["after-comment"]
+      }]
+    },
+    "ignoreFiles": [
+      "public/**/*.css",
+      "node_modules/**/*.css"
+    ]
+  },
+  "eslintConfig": {
+    "extends": [
+      "standard",
+      "plugin:vue/vue3-recommended"
+    ],
+    "parserOptions": {
+      "ecmaVersion": 2022,
+      "sourceType": "module"
+    },
+    "rules": {
+      "vue/multi-word-component-names": "off",
+      "vue/no-v-html": "off",
+      "space-before-function-paren": ["error", {
+        "anonymous": "always",
+        "named": "never",
+        "asyncArrow": "always"
+      }]
+    }
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "cms",
+    "editor",
+    "laravel",
+    "css",
+    "theming",
+    "accessibility",
+    "responsive"
+  ],
+  "author": "CMS Team",
+  "license": "MIT"
+}

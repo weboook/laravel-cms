@@ -1,0 +1,123 @@
+/*
+ * CMS Variables
+ * Central configuration for theming and customization
+ */
+
+:root {
+  /* Performance Budget */
+  --cms-max-bundle-size: 150kb;
+  --cms-max-critical-css: 20kb;
+  --cms-min-contrast-ratio: 4.5;
+
+  /* Component-specific variables */
+  --cms-editor-max-width: 1200px;
+  --cms-editor-min-width: 320px;
+  --cms-panel-max-height: 80vh;
+  --cms-tooltip-delay: 500ms;
+  --cms-dropdown-offset: 8px;
+
+  /* Interactive states */
+  --cms-hover-opacity: 0.8;
+  --cms-active-scale: 0.95;
+  --cms-disabled-opacity: 0.5;
+
+  /* Layout grid */
+  --cms-grid-columns: 12;
+  --cms-grid-gap: var(--cms-space-4);
+  --cms-container-padding: var(--cms-space-4);
+
+  /* Content widths */
+  --cms-content-width-sm: 640px;
+  --cms-content-width-md: 768px;
+  --cms-content-width-lg: 1024px;
+  --cms-content-width-xl: 1280px;
+
+  /* Editor-specific */
+  --cms-edit-highlight: rgba(59, 130, 246, 0.1);
+  --cms-edit-border: rgba(59, 130, 246, 0.3);
+  --cms-selection-color: rgba(59, 130, 246, 0.2);
+
+  /* Animation curves */
+  --cms-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --cms-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --cms-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --cms-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Form validation */
+  --cms-invalid-color: var(--cms-danger);
+  --cms-valid-color: var(--cms-success);
+  --cms-pending-color: var(--cms-warning);
+
+  /* Status indicators */
+  --cms-online-color: var(--cms-success);
+  --cms-offline-color: var(--cms-gray-400);
+  --cms-busy-color: var(--cms-warning);
+  --cms-error-color: var(--cms-danger);
+}
+
+/* Environment-specific variables */
+[data-env="development"] {
+  --cms-debug-border: 1px solid red;
+  --cms-debug-bg: rgba(255, 0, 0, 0.1);
+}
+
+[data-env="staging"] {
+  --cms-debug-border: 1px solid orange;
+  --cms-debug-bg: rgba(255, 165, 0, 0.1);
+}
+
+/* User preference variables */
+[data-user-preference="reduce-motion"] {
+  --cms-transition-fast: 0ms;
+  --cms-transition-base: 0ms;
+  --cms-transition-slow: 0ms;
+}
+
+[data-user-preference="high-contrast"] {
+  --cms-border-width: 2px;
+  --cms-focus-width: 3px;
+}
+
+[data-user-preference="large-text"] {
+  --cms-font-size-base: 1.125rem;
+  --cms-font-size-sm: 1rem;
+  --cms-font-size-xs: 0.875rem;
+}
+
+/* Color scheme variables for different themes */
+[data-color-scheme="blue"] {
+  --cms-primary-hue: 214;
+  --cms-primary-saturation: 88%;
+}
+
+[data-color-scheme="green"] {
+  --cms-primary-hue: 142;
+  --cms-primary-saturation: 69%;
+}
+
+[data-color-scheme="purple"] {
+  --cms-primary-hue: 262;
+  --cms-primary-saturation: 73%;
+}
+
+[data-color-scheme="red"] {
+  --cms-primary-hue: 0;
+  --cms-primary-saturation: 73%;
+}
+
+/* Density variants */
+[data-density="compact"] {
+  --cms-space-2: 0.375rem;
+  --cms-space-3: 0.5rem;
+  --cms-space-4: 0.75rem;
+  --cms-header-height: 48px;
+  --cms-sidebar-width: 240px;
+}
+
+[data-density="comfortable"] {
+  --cms-space-2: 0.625rem;
+  --cms-space-3: 1rem;
+  --cms-space-4: 1.25rem;
+  --cms-header-height: 72px;
+  --cms-sidebar-width: 320px;
+}

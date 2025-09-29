@@ -1,0 +1,218 @@
+/*
+ * Dark Theme Stylesheet
+ * Enhanced dark mode with improved contrast and accessibility
+ */
+
+[data-theme="dark"] {
+  /* Base colors */
+  --cms-bg: #0a0e1a;
+  --cms-bg-secondary: #111727;
+  --cms-bg-tertiary: #1f2937;
+  --cms-surface: #111727;
+  --cms-surface-elevated: #1f2937;
+
+  /* Text colors */
+  --cms-text: #f8fafc;
+  --cms-text-secondary: #cbd5e1;
+  --cms-text-tertiary: #94a3b8;
+  --cms-text-inverse: #0f172a;
+
+  /* Border colors */
+  --cms-border: #334155;
+  --cms-border-light: #475569;
+  --cms-border-dark: #64748b;
+
+  /* Enhanced status colors for dark mode */
+  --cms-primary: #60a5fa;
+  --cms-primary-50: rgba(96, 165, 250, 0.05);
+  --cms-primary-100: rgba(96, 165, 250, 0.1);
+  --cms-primary-200: rgba(96, 165, 250, 0.2);
+
+  --cms-success: #34d399;
+  --cms-success-50: rgba(52, 211, 153, 0.05);
+  --cms-success-100: rgba(52, 211, 153, 0.1);
+
+  --cms-warning: #fbbf24;
+  --cms-warning-50: rgba(251, 191, 36, 0.05);
+  --cms-warning-100: rgba(251, 191, 36, 0.1);
+
+  --cms-danger: #f87171;
+  --cms-danger-50: rgba(248, 113, 113, 0.05);
+  --cms-danger-100: rgba(248, 113, 113, 0.1);
+
+  /* Adjusted shadows for dark mode */
+  --cms-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --cms-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --cms-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --cms-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --cms-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --cms-shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+
+  /* Editor-specific dark mode colors */
+  --cms-edit-highlight: rgba(96, 165, 250, 0.15);
+  --cms-edit-border: rgba(96, 165, 250, 0.4);
+  --cms-selection-color: rgba(96, 165, 250, 0.25);
+
+  /* Status indicators for dark mode */
+  --cms-online-color: #10b981;
+  --cms-offline-color: #6b7280;
+  --cms-busy-color: #f59e0b;
+  --cms-error-color: #ef4444;
+}
+
+/* Dark mode specific component adjustments */
+[data-theme="dark"] .cms-header {
+  background-color: var(--cms-surface);
+  border-bottom-color: var(--cms-border);
+}
+
+[data-theme="dark"] .cms-sidebar {
+  background-color: var(--cms-bg-secondary);
+  border-right-color: var(--cms-border);
+}
+
+[data-theme="dark"] .cms-nav-item.active {
+  background-color: rgba(96, 165, 250, 0.15);
+  color: var(--cms-primary);
+}
+
+[data-theme="dark"] .cms-btn-secondary {
+  background-color: var(--cms-bg-tertiary);
+  border-color: var(--cms-border);
+  color: var(--cms-text);
+}
+
+[data-theme="dark"] .cms-btn-secondary:hover:not(:disabled) {
+  background-color: var(--cms-surface);
+  border-color: var(--cms-border-light);
+}
+
+[data-theme="dark"] .cms-input,
+[data-theme="dark"] .cms-textarea,
+[data-theme="dark"] .cms-select {
+  background-color: var(--cms-bg-tertiary);
+  border-color: var(--cms-border);
+  color: var(--cms-text);
+}
+
+[data-theme="dark"] .cms-input:focus,
+[data-theme="dark"] .cms-textarea:focus,
+[data-theme="dark"] .cms-select:focus {
+  border-color: var(--cms-primary);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+}
+
+[data-theme="dark"] .cms-modal,
+[data-theme="dark"] .cms-floating-panel {
+  background-color: var(--cms-surface-elevated);
+  border-color: var(--cms-border);
+}
+
+[data-theme="dark"] .cms-dropdown-menu {
+  background-color: var(--cms-surface-elevated);
+  border-color: var(--cms-border);
+}
+
+[data-theme="dark"] .cms-dropdown-item:hover {
+  background-color: var(--cms-bg-tertiary);
+}
+
+[data-theme="dark"] .cms-toast {
+  background-color: var(--cms-surface-elevated);
+  border-color: var(--cms-border);
+}
+
+/* Dark mode loading shimmer */
+[data-theme="dark"] .cms-loading::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+}
+
+/* Dark mode scrollbar */
+[data-theme="dark"] .cms-scrollbar::-webkit-scrollbar-track {
+  background: var(--cms-bg-secondary);
+}
+
+[data-theme="dark"] .cms-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--cms-border);
+}
+
+[data-theme="dark"] .cms-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--cms-border-light);
+}
+
+/* Dark mode editable states */
+[data-theme="dark"] .cms-editable:hover {
+  background-color: rgba(96, 165, 250, 0.08);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.25);
+}
+
+[data-theme="dark"] .cms-editable.editing {
+  background-color: rgba(96, 165, 250, 0.12);
+  box-shadow: 0 0 0 2px var(--cms-primary);
+}
+
+[data-theme="dark"] .cms-editable.error {
+  background-color: rgba(248, 113, 113, 0.08);
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .cms-editable.success {
+  background-color: rgba(52, 211, 153, 0.08);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3);
+}
+
+/* Improved contrast for dark mode */
+[data-theme="dark"] .cms-text-secondary {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .cms-text-tertiary {
+  color: #cbd5e1;
+}
+
+/* Dark mode form validation */
+[data-theme="dark"] .cms-input-error,
+[data-theme="dark"] .cms-textarea-error,
+[data-theme="dark"] .cms-select-error {
+  border-color: var(--cms-danger);
+}
+
+[data-theme="dark"] .cms-input-error:focus,
+[data-theme="dark"] .cms-textarea-error:focus,
+[data-theme="dark"] .cms-select-error:focus {
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+}
+
+/* Dark mode tooltips */
+[data-theme="dark"] .cms-tooltip {
+  background-color: var(--cms-text);
+  color: var(--cms-bg);
+}
+
+[data-theme="dark"] .cms-tooltip.top::before {
+  border-top-color: var(--cms-text);
+}
+
+[data-theme="dark"] .cms-tooltip.bottom::before {
+  border-bottom-color: var(--cms-text);
+}
+
+/* Dark mode accessibility improvements */
+[data-theme="dark"] :focus-visible {
+  outline: 2px solid var(--cms-primary);
+  outline-offset: 2px;
+}
+
+/* Dark mode print styles */
+@media print {
+  [data-theme="dark"] {
+    --cms-bg: #ffffff;
+    --cms-text: #000000;
+    --cms-surface: #ffffff;
+  }
+}

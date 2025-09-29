@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="test-token">
+    <title>Media Library Test</title>
+
+    <!-- CSS -->
+    <link href="vendor/cms/css/cms-variables.css" rel="stylesheet">
+    <link href="vendor/cms/css/cms-asset-library.css" rel="stylesheet">
+    <link href="vendor/cms/css/dropzone-integration.css" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 12px 24px;
+            background: #0073aa;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #005177;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Media Library Test</h1>
+
+        <div>
+            <button onclick="testAssetLibrary()">Test Asset Library</button>
+            <button onclick="openMediaLibrary()">Open Media Library</button>
+        </div>
+
+        <div id="status">
+            <h3>Status:</h3>
+            <div id="statusContent">Ready to test...</div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="vendor/cms/js/components/AssetLibrary.js"></script>
+    <script src="vendor/cms/js/components/DropzoneIntegration.js"></script>
+
+    <script>
+        let assetLibrary = null;
+        const statusEl = document.getElementById('statusContent');
+
+        function log(message, type = 'info') {
+            console.log(message);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            statusEl.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+        }
+
+        function testAssetLibrary() {
+            statusEl.innerHTML = '';
+            log('Starting test...');
+
+            try {
+                // Check if AssetLibrary is available
+                if (typeof AssetLibrary === 'undefined') {
+                    log('ERROR: AssetLibrary class not found', 'error');
+                    return;
+                }
+                log('✓ AssetLibrary class found', 'success');
+
+                // Try to create instance
+                log('Creating AssetLibrary instance...');
+                assetLibrary = new AssetLibrary({
+                    mode: 'single',
+                    allowUpload: true,
+                    onSelect: (assets) => {
+                        log(`Assets selected: ${JSON.stringify(assets)}`, 'success');
+                    },
+                    onClose: () => {
+                        log('Media library closed');
+                    }
+                });
+
+                log('✓ AssetLibrary instance created', 'success');
+
+                // Check if modal was created
+                const modal = document.querySelector('.cms-asset-library-modal');
+                if (modal) {
+                    log('✓ Modal element found in DOM', 'success');
+                    log(`Modal ID: ${modal.id}`);
+                    log(`Modal classes: ${modal.className}`);
+                } else {
+                    log('ERROR: Modal element not found in DOM', 'error');
+                }
+
+                // Check if library has required methods
+                if (assetLibrary.open) {
+                    log('✓ open() method exists', 'success');
+                } else {
+                    log('ERROR: open() method not found', 'error');
+                }
+
+                if (assetLibrary.close) {
+                    log('✓ close() method exists', 'success');
+                } else {
+                    log('ERROR: close() method not found', 'error');
+                }
+
+                log('Test completed!', 'success');
+
+            } catch (error) {
+                log(`ERROR: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+
+        function openMediaLibrary() {
+            statusEl.innerHTML = '';
+            log('Opening media library...');
+
+            try {
+                if (!assetLibrary) {
+                    log('Creating new AssetLibrary instance...');
+                    assetLibrary = new AssetLibrary({
+                        mode: 'multiple',
+                        allowUpload: true,
+                        onSelect: (assets) => {
+                            log(`Selected ${assets.length} assets`, 'success');
+                        }
+                    });
+                }
+
+                // Mock some test data
+                assetLibrary.state.assets = [
+                    {
+                        id: 1,
+                        type: 'image',
+                        url: 'https://via.placeholder.com/300x200/0073aa/ffffff?text=Test+Image+1',
+                        thumbnails: {
+                            small: 'https://via.placeholder.com/150x100/0073aa/ffffff?text=Thumb+1'
+                        },
+                        filename: 'test-image-1.jpg',
+                        title: 'Test Image 1',
+                        size: 123456,
+                        created_at: new Date().toISOString()
+                    },
+                    {
+                        id: 2,
+                        type: 'image',
+                        url: 'https://via.placeholder.com/300x200/00a0d2/ffffff?text=Test+Image+2',
+                        thumbnails: {
+                            small: 'https://via.placeholder.com/150x100/00a0d2/ffffff?text=Thumb+2'
+                        },
+                        filename: 'test-image-2.jpg',
+                        title: 'Test Image 2',
+                        size: 234567,
+                        created_at: new Date().toISOString()
+                    }
+                ];
+
+                log('Opening modal...');
+                assetLibrary.open();
+                log('✓ Modal opened', 'success');
+
+            } catch (error) {
+                log(`ERROR: ${error.message}`, 'error');
+            }
+        }
+
+        // Override fetch for testing
+        window.fetch = function(url) {
+            console.log('Fetch called:', url);
+
+            if (url.includes('/cms/api/assets')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        success: true,
+                        data: [],
+                        meta: { total: 0, page: 1 }
+                    })
+                });
+            }
+
+            return Promise.reject(new Error('Not mocked'));
+        };
+    </script>
+</body>
+</html>

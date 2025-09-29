@@ -1,0 +1,250 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "role": "cms_editor",
+      "permissions": ["cms_editor", "cms_translator"],
+      "preferences": {
+        "theme": "light",
+        "auto_save": true,
+        "show_minimap": false,
+        "font_size": 14,
+        "line_numbers": true,
+        "word_wrap": true
+      }
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "role": "cms_admin",
+      "permissions": ["cms_admin", "cms_editor", "cms_translator"],
+      "preferences": {
+        "theme": "dark",
+        "auto_save": true,
+        "show_minimap": true,
+        "font_size": 16,
+        "line_numbers": true,
+        "word_wrap": false
+      }
+    }
+  ],
+  "content_items": [
+    {
+      "type": "page",
+      "title": "Home Page",
+      "description": "Main landing page content",
+      "variables": [
+        "{{ $pageTitle }}",
+        "{{ $heroHeading }}",
+        "{{ $heroSubtext }}",
+        "{{ $ctaButton }}"
+      ],
+      "content": "Welcome to our amazing website. This is the home page content that can be edited through the CMS."
+    },
+    {
+      "type": "page",
+      "title": "About Us",
+      "description": "Company information page",
+      "variables": [
+        "{{ $companyName }}",
+        "{{ $foundedYear }}",
+        "{{ $teamSize }}",
+        "{{ $mission }}"
+      ],
+      "content": "Learn about our company history, mission, and the amazing team behind our success."
+    },
+    {
+      "type": "blog_post",
+      "title": "Getting Started with CMS",
+      "description": "Tutorial blog post",
+      "variables": [
+        "{{ $author }}",
+        "{{ $publishDate }}",
+        "{{ $category }}",
+        "{{ $readTime }}"
+      ],
+      "content": "This blog post explains how to get started with our content management system."
+    }
+  ],
+  "translations": {
+    "en": {
+      "test_keys": {
+        "simple_key": "Simple English translation",
+        "complex_key": "Complex English translation with {parameter}",
+        "nested": {
+          "deep": {
+            "value": "Deeply nested English value"
+          }
+        }
+      }
+    },
+    "es": {
+      "test_keys": {
+        "simple_key": "Traducción simple en español",
+        "complex_key": "Traducción compleja en español con {parameter}",
+        "nested": {
+          "deep": {
+            "value": "Valor español profundamente anidado"
+          }
+        }
+      }
+    },
+    "fr": {
+      "test_keys": {
+        "simple_key": "Traduction simple en français",
+        "complex_key": "Traduction complexe en français avec {parameter}",
+        "nested": {
+          "deep": {
+            "value": "Valeur française profondément imbriquée"
+          }
+        }
+      }
+    }
+  },
+  "test_scenarios": [
+    {
+      "name": "Basic Text Update",
+      "description": "Test updating simple text content in a file",
+      "file_type": "blade",
+      "search": "{{ $oldVariable }}",
+      "replace": "{{ $newVariable }}",
+      "expected_changes": 1
+    },
+    {
+      "name": "Multiple Variable Update",
+      "description": "Test updating multiple variables in a single file",
+      "file_type": "blade",
+      "updates": [
+        {
+          "search": "{{ $title }}",
+          "replace": "{{ $pageTitle }}"
+        },
+        {
+          "search": "{{ $description }}",
+          "replace": "{{ $pageDescription }}"
+        }
+      ],
+      "expected_changes": 2
+    },
+    {
+      "name": "HTML Attribute Update",
+      "description": "Test updating HTML attributes",
+      "file_type": "html",
+      "selector": "img",
+      "attribute": "src",
+      "old_value": "/old-image.jpg",
+      "new_value": "/new-image.jpg",
+      "expected_changes": 1
+    },
+    {
+      "name": "CSS Class Update",
+      "description": "Test updating CSS classes",
+      "file_type": "html",
+      "search": "class=\"old-class\"",
+      "replace": "class=\"new-class\"",
+      "expected_changes": 1
+    }
+  ],
+  "performance_benchmarks": {
+    "file_scan": {
+      "small_directory": {
+        "file_count": 10,
+        "max_time_seconds": 1.0,
+        "max_memory_mb": 10
+      },
+      "medium_directory": {
+        "file_count": 100,
+        "max_time_seconds": 3.0,
+        "max_memory_mb": 50
+      },
+      "large_directory": {
+        "file_count": 1000,
+        "max_time_seconds": 10.0,
+        "max_memory_mb": 100
+      }
+    },
+    "content_update": {
+      "single_file": {
+        "max_time_seconds": 0.5,
+        "max_memory_mb": 5
+      },
+      "bulk_update": {
+        "file_count": 50,
+        "max_time_seconds": 5.0,
+        "max_memory_mb": 50
+      }
+    },
+    "translation_operations": {
+      "single_translation": {
+        "max_time_seconds": 0.1,
+        "max_memory_mb": 2
+      },
+      "bulk_import": {
+        "translation_count": 1000,
+        "max_time_seconds": 3.0,
+        "max_memory_mb": 20
+      }
+    }
+  },
+  "configuration": {
+    "test_locales": ["en", "es", "fr"],
+    "allowed_file_types": [
+      "blade.php",
+      "html",
+      "txt",
+      "md",
+      "json"
+    ],
+    "restricted_paths": [
+      "config/",
+      ".env",
+      "vendor/",
+      "node_modules/"
+    ],
+    "max_file_size_kb": 1024,
+    "backup_retention_days": 30,
+    "auto_save_interval_seconds": 30
+  },
+  "sample_content": {
+    "blade_templates": [
+      {
+        "filename": "layout.blade.php",
+        "content": "@extends('app')\n@section('content')\n<div class=\"container\">{{ $content }}</div>\n@endsection"
+      },
+      {
+        "filename": "homepage.blade.php",
+        "content": "@extends('layout')\n@section('title', '{{ $pageTitle }}')\n@section('content')\n<h1>{{ $heading }}</h1>\n<p>{{ $description }}</p>\n@endsection"
+      }
+    ],
+    "html_pages": [
+      {
+        "filename": "landing.html",
+        "content": "<!DOCTYPE html>\n<html>\n<head><title>{{ title }}</title></head>\n<body>\n<h1 id=\"main-title\">{{ heading }}</h1>\n<p class=\"description\">{{ description }}</p>\n</body>\n</html>"
+      }
+    ]
+  },
+  "mock_responses": {
+    "api_success": {
+      "success": true,
+      "data": {},
+      "timestamp": 1640995200
+    },
+    "api_error": {
+      "success": false,
+      "message": "An error occurred",
+      "errors": {},
+      "timestamp": 1640995200
+    },
+    "validation_error": {
+      "success": false,
+      "message": "Validation failed",
+      "errors": {
+        "field_name": ["Field is required"]
+      },
+      "timestamp": 1640995200
+    }
+  }
+}

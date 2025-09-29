@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="test-token">
+    <title>Fixed Media Library Test</title>
+
+    <!-- CSS with cache busting -->
+    <link href="vendor/cms/css/cms-variables.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="vendor/cms/css/cms-asset-library.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="vendor/cms/css/dropzone-integration.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="https://unpkg.com/dropzone@6.0.0-beta.2/dist/dropzone.css" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+        button {
+            padding: 12px 24px;
+            background: #0073aa;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #005177;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: #0073aa; }
+
+        /* Icon placeholders */
+        .icon-browse::before { content: "📁 "; }
+        .icon-upload::before { content: "⬆️ "; }
+        .icon-close::before { content: "✕"; }
+        .icon-clear::before { content: "✕"; }
+        .icon-grid::before { content: "⊞ "; }
+        .icon-list::before { content: "☰ "; }
+        .icon-cloud-upload::before { content: "☁️ "; }
+        .icon-file::before { content: "📄 "; }
+        .icon-check::before { content: "✓ "; }
+        .icon-error::before { content: "⚠️ "; }
+        .icon-empty::before { content: "📭 "; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Fixed Media Library Test</h1>
+        <p>This version includes all the fixes for the media library modal issues.</p>
+
+        <div class="test-buttons">
+            <button onclick="openMediaLibrary('single')">Open Single Selection</button>
+            <button onclick="openMediaLibrary('multiple')">Open Multiple Selection</button>
+            <button onclick="openMediaLibrary('gallery')">Open Gallery Mode</button>
+            <button onclick="testCreation()">Test Creation Only</button>
+        </div>
+
+        <div class="status" id="status">
+            <strong>Status:</strong> <span id="statusText">Ready</span>
+        </div>
+
+        <div id="selectedAssets" style="margin-top: 20px;">
+            <h3>Selected Assets:</h3>
+            <div id="assetsContainer">None selected yet</div>
+        </div>
+    </div>
+
+    <!-- Scripts with cache busting -->
+    <script src="https://unpkg.com/dropzone@6.0.0-beta.2/dist/basic.js"></script>
+    <script>
+        // Inline the fixed AssetLibrary to ensure we're using the corrected version
+        <?php
+        // Read and output the fixed AssetLibrary.js file
+        echo file_get_contents(__DIR__ . '/vendor/cms/js/components/AssetLibrary.js');
+        ?>
+    </script>
+    <script>
+        // Now load DropzoneIntegration
+        <?php
+        // Read and output DropzoneIntegration if it exists
+        $dropzonePath = __DIR__ . '/vendor/cms/js/components/DropzoneIntegration.js';
+        if (file_exists($dropzonePath)) {
+            echo file_get_contents($dropzonePath);
+        }
+        ?>
+    </script>
+
+    <script>
+        let assetLibrary = null;
+
+        function setStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusText');
+            statusEl.textContent = message;
+            statusEl.className = type;
+            console.log(`[${type}] ${message}`);
+        }
+
+        function testCreation() {
+            setStatus('Testing AssetLibrary creation...', 'info');
+
+            try {
+                // Test creation
+                const testLib = new AssetLibrary({
+                    mode: 'single',
+                    allowUpload: true
+                });
+
+                setStatus('✅ AssetLibrary created successfully!', 'success');
+
+                // Check modal
+                const modal = document.querySelector('.cms-asset-library-modal');
+                if (modal) {
+                    setStatus('✅ Modal found in DOM', 'success');
+                } else {
+                    setStatus('⚠️ Modal not found in DOM', 'error');
+                }
+
+            } catch (error) {
+                setStatus(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        function openMediaLibrary(mode = 'single') {
+            setStatus(`Opening media library in ${mode} mode...`, 'info');
+
+            try {
+                // Clean up previous instance
+                if (assetLibrary && assetLibrary.modal) {
+                    assetLibrary.close();
+                    if (assetLibrary.modal && assetLibrary.modal.parentNode) {
+                        assetLibrary.modal.remove();
+                    }
+                }
+
+                // Create new instance
+                assetLibrary = new AssetLibrary({
+                    mode: mode,
+                    allowUpload: true,
+                    allowDelete: false,
+                    allowEdit: true,
+                    onSelect: function(assets) {
+                        handleSelection(assets);
+                    },
+                    onClose: function() {
+                        setStatus('Media library closed', 'info');
+                    }
+                });
+
+                // Mock some test data
+                assetLibrary.state.assets = [
+                    {
+                        id: 1,
+                        type: 'image',
+                        url: 'https://via.placeholder.com/300x200/0073aa/ffffff?text=Image+1',
+                        thumbnails: {
+                            small: 'https://via.placeholder.com/150x100/0073aa/ffffff?text=Thumb+1',
+                            medium: 'https://via.placeholder.com/300x200/0073aa/ffffff?text=Image+1'
+                        },
+                        filename: 'test-image-1.jpg',
+                        title: 'Test Image 1',
+                        size: 123456,
+                        created_at: new Date().toISOString()
+                    },
+                    {
+                        id: 2,
+                        type: 'image',
+                        url: 'https://via.placeholder.com/300x200/28a745/ffffff?text=Image+2',
+                        thumbnails: {
+                            small: 'https://via.placeholder.com/150x100/28a745/ffffff?text=Thumb+2',
+                            medium: 'https://via.placeholder.com/300x200/28a745/ffffff?text=Image+2'
+                        },
+                        filename: 'test-image-2.jpg',
+                        title: 'Test Image 2',
+                        size: 234567,
+                        created_at: new Date().toISOString()
+                    },
+                    {
+                        id: 3,
+                        type: 'document',
+                        url: '#',
+                        filename: 'document.pdf',
+                        title: 'Sample Document',
+                        size: 1048576,
+                        extension: 'pdf',
+                        created_at: new Date().toISOString()
+                    }
+                ];
+
+                // Open the library
+                assetLibrary.open();
+
+                // Render the test assets
+                if (assetLibrary.renderAssets) {
+                    assetLibrary.renderAssets();
+                }
+
+                setStatus(`✅ Media library opened in ${mode} mode`, 'success');
+
+            } catch (error) {
+                setStatus(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        function handleSelection(assets) {
+            const container = document.getElementById('assetsContainer');
+
+            if (!assets || (Array.isArray(assets) && assets.length === 0)) {
+                container.innerHTML = 'No assets selected';
+                return;
+            }
+
+            const assetsArray = Array.isArray(assets) ? assets : [assets];
+
+            container.innerHTML = assetsArray.map(asset => `
+                <div style="margin: 10px 0; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+                    <strong>${asset.title || asset.filename}</strong><br>
+                    Type: ${asset.type}<br>
+                    Size: ${formatFileSize(asset.size)}
+                </div>
+            `).join('');
+
+            setStatus(`✅ Selected ${assetsArray.length} asset(s)`, 'success');
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+        }
+
+        // Mock fetch for testing
+        window.fetch = window.fetch || function(url) {
+            console.log('Mock fetch:', url);
+
+            if (url.includes('/cms/api/assets')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        success: true,
+                        data: [],
+                        meta: { total: 0, page: 1, last_page: 1 }
+                    })
+                });
+            }
+
+            if (url.includes('/cms/api/folders')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        success: true,
+                        data: [
+                            { id: 1, name: 'Images', parent_id: null },
+                            { id: 2, name: 'Documents', parent_id: null }
+                        ]
+                    })
+                });
+            }
+
+            return Promise.reject(new Error('Not mocked'));
+        };
+
+        // Test on load
+        document.addEventListener('DOMContentLoaded', function() {
+            testCreation();
+        });
+    </script>
+</body>
+</html>
