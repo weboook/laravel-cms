@@ -1585,15 +1585,27 @@
                     return;
                 }
 
-                list.innerHTML = availableLanguages.map(lang => `
-                    <div class="cms-language-item ${lang.active ? 'active' : ''}" data-lang="${lang.code}">
+                // Helper to escape HTML (if not already defined)
+                const escapeHtml = (str) => {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                };
+
+                list.innerHTML = availableLanguages.map(lang => {
+                    const safeName = escapeHtml(lang.native_name || lang.code);
+                    const safeCode = escapeHtml(lang.code);
+
+                    return `
+                    <div class="cms-language-item ${lang.active ? 'active' : ''}" data-lang="${safeCode}">
                         <div>
-                            <div class="cms-language-name">${lang.native_name}</div>
-                            <div class="cms-language-code">${lang.code}</div>
+                            <div class="cms-language-name">${safeName}</div>
+                            <div class="cms-language-code">${safeCode}</div>
                         </div>
                         ${lang.active ? '<span>✓</span>' : ''}
                     </div>
-                `).join('');
+                    `;
+                }).join('');
 
                 // Add click handlers
                 list.querySelectorAll('.cms-language-item').forEach(item => {
@@ -1616,19 +1628,29 @@
                     return;
                 }
 
+                // Helper to escape HTML
+                const escapeHtml = (str) => {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                };
+
                 list.innerHTML = allPages.map(page => {
                     // Filter out storage routes
                     if (page.path && page.path.includes('/storage/')) {
                         return '';
                     }
 
+                    const safeTitle = escapeHtml(page.title || 'Untitled');
+                    const safePath = escapeHtml(page.path || '/');
+
                     return `
                     <div class="cms-page-item ${page.is_template ? 'template' : ''} ${page.path === currentPage ? 'active' : ''}"
-                         data-path="${page.path}"
+                         data-path="${safePath}"
                          data-template="${page.is_template}">
                         <div>
-                            <div class="cms-page-item-title">${page.title || 'Untitled'}</div>
-                            <div class="cms-page-item-path">${page.path}</div>
+                            <div class="cms-page-item-title">${safeTitle}</div>
+                            <div class="cms-page-item-path">${safePath}</div>
                         </div>
                         ${page.is_template ? '<span>Template</span>' : ''}
                     </div>`;
