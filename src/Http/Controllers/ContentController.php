@@ -91,7 +91,8 @@ class ContentController extends Controller
         $validated = $request->validate([
             'element_id' => 'required|string',
             'content' => 'required',
-            'type' => 'string|in:text,html,link,heading',
+            'original_content' => 'nullable|string',
+            'type' => 'string|in:text,html,link,heading,image',
             'page_url' => 'required|string',
             'file_hint' => 'nullable|string'
         ]);
@@ -117,7 +118,8 @@ class ContentController extends Controller
             $file,
             $validated['element_id'],
             $content,
-            $this->determineFileType($file)
+            $this->determineFileType($file),
+            $validated['original_content'] ?? null
         );
 
         // Log the save action

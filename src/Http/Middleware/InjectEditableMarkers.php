@@ -996,11 +996,15 @@ class InjectEditableMarkers
                 toolbar.parentElement.removeChild(toolbar);
             }
 
+            // Get original content
+            const originalContent = element.getAttribute('data-cms-original') || '';
+
             // Trigger save event (to be handled by save functionality)
             const event = new CustomEvent('cms:contentChanged', {
                 detail: {
                     id: contentId,
                     content: newContent,
+                    originalContent: originalContent,
                     element: element
                 }
             });

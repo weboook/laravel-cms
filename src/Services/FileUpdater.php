@@ -22,7 +22,7 @@ class FileUpdater
     /**
      * Update content in a file
      */
-    public function updateContent($filePath, $elementId, $newContent, $type = 'text')
+    public function updateContent($filePath, $elementId, $newContent, $type = 'text', $originalContent = null)
     {
         try {
             // Validate file exists
@@ -38,9 +38,9 @@ class FileUpdater
 
             // Update content based on type
             if ($type === 'blade') {
-                $updatedContent = $this->updateBladeContent($content, $elementId, $newContent);
+                $updatedContent = $this->updateBladeContent($content, $elementId, $newContent, $originalContent);
             } else {
-                $updatedContent = $this->updateHtmlContent($content, $elementId, $newContent);
+                $updatedContent = $this->updateHtmlContent($content, $elementId, $newContent, $originalContent);
             }
 
             // Write updated content
@@ -164,8 +164,48 @@ class FileUpdater
     /**
      * Update HTML content using DOM
      */
-    protected function updateHtmlContent($html, $elementId, $newContent)
+    protected function updateHtmlContent($html, $elementId, $newContent, $originalContent = null)
     {
+        // The data-cms-id doesn't exist in source files, it's injected at runtime
+        // We need to use the original content that was stored in data-cms-original
+        // For now, we'll use a content-based search
+
+        // Extract the original content from the element ID
+        // The ID is generated from content, so we need to find by content
+
+        // First check if this is a Blade file - if so, we need special handling
+        $isBladeFile = strpos($html, '@extends') !== false || strpos($html, '@section') !== false;
+
+        if ($isBladeFile) {
+            // For Blade files, we'll need to be more careful
+            // Try to find the content and replace it
+            return $this->updateBladeContent($html, $elementId, $newContent, $originalContent);
+        }
+
+        // For regular HTML, look for the element with data-cms-id
+        $pattern = '/(data-cms-id=["\']' . preg_quote($elementId, '/') . '["\'][^>]*>)(.*?)(<\/[^>]+>)/s';
+
+        if (preg_match($pattern, $html, $matches)) {
+            $openTag = $matches[1];
+            $oldContent = $matches[2];
+            $closeTag = $matches[3];
+
+            // Build the replacement
+            $replacement = $openTag . $newContent . $closeTag;
+
+            // Replace in the HTML
+            $html = str_replace($matches[0], $replacement, $html);
+
+            $this->logger->info('Updated content using regex', [
+                'element_id' => $elementId,
+                'old_content' => substr($oldContent, 0, 50),
+                'new_content' => substr($newContent, 0, 50)
+            ]);
+
+            return $html;
+        }
+
+        // Fallback to DOM approach if regex doesn't work
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
         $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
@@ -174,6 +214,11 @@ class FileUpdater
 
         // Find element by data-cms-id
         $elements = $xpath->query("//*[@data-cms-id='{$elementId}']");
+
+        $this->logger->info('DOM search for element', [
+            'element_id' => $elementId,
+            'found_count' => $elements->length
+        ]);
 
         if ($elements->length > 0) {
             $element = $elements->item(0);
@@ -210,30 +255,56 @@ class FileUpdater
     /**
      * Update Blade template content
      */
-    protected function updateBladeContent($content, $elementId, $newContent)
+    protected function updateBladeContent($content, $elementId, $newContent, $originalContent = null)
     {
-        // For Blade files, we need to be more careful
-        // Look for the element with data-cms-id in the rendered output pattern
+        // For Blade files, find and replace by original content
+        if ($originalContent && !empty(trim($originalContent))) {
+            // Simple string replacement based on original content
+            $originalContent = trim($originalContent);
 
-        // This is a simplified version - in production you'd want more robust parsing
-        $pattern = '/data-cms-id=["\']' . preg_quote($elementId, '/') . '["\'][^>]*>.*?<\/\w+>/s';
+            // Try exact match first
+            if (strpos($content, $originalContent) !== false) {
+                $content = str_replace($originalContent, $newContent, $content);
+                $this->logger->info('Updated Blade content by exact match', [
+                    'element_id' => $elementId,
+                    'original' => substr($originalContent, 0, 50),
+                    'new' => substr($newContent, 0, 50)
+                ]);
+                return $content;
+            }
 
-        if (preg_match($pattern, $content, $matches)) {
-            $oldElement = $matches[0];
+            // Try with HTML entities decoded
+            $decodedOriginal = html_entity_decode($originalContent);
+            if (strpos($content, $decodedOriginal) !== false) {
+                $content = str_replace($decodedOriginal, $newContent, $content);
+                $this->logger->info('Updated Blade content by decoded match', [
+                    'element_id' => $elementId
+                ]);
+                return $content;
+            }
 
-            // Extract the tag and attributes
-            if (preg_match('/^([^>]+>)/', $oldElement, $tagMatch)) {
-                $openTag = $tagMatch[1];
-                $tagName = '';
-                if (preg_match('/<(\w+)/', $openTag, $nameMatch)) {
-                    $tagName = $nameMatch[1];
+            // Try to find within tags
+            $patterns = [
+                '/(<[^>]*>)(' . preg_quote($originalContent, '/') . ')(<\/[^>]+>)/',
+                '/(' . preg_quote($originalContent, '/') . ')/'
+            ];
+
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $content)) {
+                    $content = preg_replace($pattern, '$1' . $newContent . '$3', $content, 1);
+                    $this->logger->info('Updated Blade content by pattern match', [
+                        'element_id' => $elementId,
+                        'pattern' => $pattern
+                    ]);
+                    return $content;
                 }
-
-                // Build new element with updated content
-                $newElement = $openTag . $newContent . '</' . $tagName . '>';
-                $content = str_replace($oldElement, $newElement, $content);
             }
         }
+
+        $this->logger->warning('Could not update Blade content', [
+            'element_id' => $elementId,
+            'has_original' => !empty($originalContent)
+        ]);
 
         return $content;
     }
