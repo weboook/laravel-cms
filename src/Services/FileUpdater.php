@@ -257,7 +257,57 @@ class FileUpdater
      */
     protected function updateBladeContent($content, $elementId, $newContent, $originalContent = null)
     {
-        // For Blade files, find and replace by original content
+        // Handle image updates specially
+        if (is_array($newContent) && isset($newContent['type']) && $newContent['type'] === 'image') {
+            // For images, we need to find and replace the src attribute
+            if (isset($newContent['src'])) {
+                // Find the image element by looking for common patterns
+                $patterns = [
+                    // Look for img tags with asset() helper
+                    '/(<img[^>]*src=["\'])([^"\']+)(["\'][^>]*>)/',
+                    // Look for img tags with URL
+                    '/(<img[^>]*src=["\'])(https?:\/\/[^"\']+)(["\'][^>]*>)/',
+                ];
+
+                foreach ($patterns as $pattern) {
+                    if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                        // Check if this is near our element based on context
+                        $before = $matches[1][0];
+                        $oldSrc = $matches[2][0];
+                        $after = $matches[3][0];
+
+                        // Replace with new src
+                        $replacement = $before . $newContent['src'] . $after;
+                        $content = substr_replace($content, $replacement, $matches[0][1], strlen($matches[0][0]));
+
+                        $this->logger->info('Updated image src in Blade file', [
+                            'element_id' => $elementId,
+                            'old_src' => $oldSrc,
+                            'new_src' => $newContent['src']
+                        ]);
+
+                        // Update alt if provided
+                        if (isset($newContent['alt'])) {
+                            $content = preg_replace(
+                                '/(alt=["\'])[^"\']*(["\'])/',
+                                '${1}' . $newContent['alt'] . '${2}',
+                                $content,
+                                1
+                            );
+                        }
+
+                        return $content;
+                    }
+                }
+            }
+
+            $this->logger->warning('Could not find image to update in Blade content', [
+                'element_id' => $elementId
+            ]);
+            return $content;
+        }
+
+        // For non-image content, find and replace by original content
         if ($originalContent && !empty(trim($originalContent))) {
             // Simple string replacement based on original content
             $originalContent = trim($originalContent);
@@ -268,7 +318,7 @@ class FileUpdater
                 $this->logger->info('Updated Blade content by exact match', [
                     'element_id' => $elementId,
                     'original' => substr($originalContent, 0, 50),
-                    'new' => substr($newContent, 0, 50)
+                    'new' => substr((string)$newContent, 0, 50)
                 ]);
                 return $content;
             }

@@ -107,8 +107,8 @@ class ContentController extends Controller
             ], 400);
         }
 
-        // Handle link content specially
-        if ($validated['type'] === 'link' && is_array($validated['content'])) {
+        // Handle link and image content specially
+        if (($validated['type'] === 'link' || $validated['type'] === 'image') && is_array($validated['content'])) {
             $content = $validated['content'];
         } else {
             $content = $validated['content'];

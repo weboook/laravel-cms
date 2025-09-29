@@ -359,15 +359,15 @@
             </div>
 
             <div class="cms-tab-content" data-tab="library" style="display: none;">
-                <div class="cms-media-library-placeholder">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <button class="cms-btn cms-btn-primary" onclick="window.openModal('assets'); window.CMS.selectingImageForEditor = true;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
                         <polyline points="21 15 16 10 5 21"></polyline>
                     </svg>
-                    <h3>Media Library Coming Soon</h3>
-                    <p>The media library feature will allow you to browse and select from previously uploaded images.</p>
-                </div>
+                    Open Media Library
+                </button>
+                <p style="margin-top: 10px; color: #999; font-size: 13px;">Browse and select from previously uploaded images</p>
             </div>
 
             <div class="cms-setting-group cms-image-actions">
@@ -1970,14 +1970,21 @@
                     grid.innerHTML = '<div class="cms-media-loading">Loading media...</div>';
 
                     let url = apiBaseUrl + '/media';
-                    if (currentFolder > 0) {
+                    // For root folder (All Media), explicitly request items with no folder
+                    if (currentFolder === 0) {
+                        url += '?include_root=true';
+                    } else {
                         url += `?folder_id=${currentFolder}`;
                     }
 
                     fetch(url)
                         .then(response => response.json())
                         .then(data => {
-                            mediaItems = data.media || [];
+                            if (data.success && Array.isArray(data.media)) {
+                                mediaItems = data.media;
+                            } else {
+                                mediaItems = [];
+                            }
                             renderMedia();
                         })
                         .catch(error => {
@@ -2150,13 +2157,46 @@
                     });
                 }
 
-                // Insert selected media (placeholder - implement based on context)
+                // Insert selected media
                 function insertSelectedMedia() {
                     const selected = document.querySelectorAll('.cms-media-item.selected');
-                    const urls = Array.from(selected).map(item => item.dataset.url);
 
-                    console.log('Selected media URLs:', urls);
-                    // TODO: Implement based on where media needs to be inserted
+                    if (selected.length === 0) {
+                        alert('Please select at least one image');
+                        return;
+                    }
+
+                    // Check if we're selecting for the image editor
+                    if (window.CMS.selectingImageForEditor) {
+                        if (selected.length > 1) {
+                            alert('Please select only one image for the editor');
+                            return;
+                        }
+
+                        const selectedItem = selected[0];
+                        const url = selectedItem.dataset.url;
+
+                        // Update the image editor preview
+                        const previewImg = document.getElementById('cms-preview-img');
+                        const dropzone = document.getElementById('cms-image-dropzone');
+                        const preview = document.getElementById('cms-image-preview');
+
+                        if (previewImg && dropzone && preview) {
+                            previewImg.src = url;
+                            dropzone.style.display = 'none';
+                            preview.style.display = 'block';
+                            document.getElementById('cms-save-image').disabled = false;
+
+                            // Store the selected URL for saving
+                            window.CMS.selectedLibraryImage = url;
+                        }
+
+                        window.CMS.selectingImageForEditor = false;
+                    } else {
+                        // Regular insertion (for future content editor integration)
+                        const urls = Array.from(selected).map(item => item.dataset.url);
+                        console.log('Selected media URLs:', urls);
+                    }
 
                     closeModal();
                     deselectAllMedia();
@@ -2171,6 +2211,7 @@
                 const newAlt = document.getElementById('cms-image-alt').value;
                 const newTitle = document.getElementById('cms-image-title').value;
                 const selectedFile = window.CMS.selectedImageFile?.();
+                const selectedLibraryUrl = window.CMS.selectedLibraryImage;
 
                 // Update alt and title
                 if (newAlt !== undefined) element.setAttribute('alt', newAlt);
@@ -2179,6 +2220,22 @@
                 // If a new file was selected, upload it
                 if (selectedFile) {
                     uploadImage(selectedFile, element);
+                } else if (selectedLibraryUrl) {
+                    // Use image from library
+                    element.setAttribute('src', selectedLibraryUrl);
+                    const event = new CustomEvent('cms:contentChanged', {
+                        detail: {
+                            id: element.getAttribute('data-cms-id'),
+                            type: 'image',
+                            src: selectedLibraryUrl,
+                            alt: newAlt,
+                            title: newTitle,
+                            element: element
+                        }
+                    });
+                    document.dispatchEvent(event);
+                    window.CMS.selectedLibraryImage = null;
+                    closeModal();
                 } else {
                     // Just save the alt/title changes
                     const event = new CustomEvent('cms:contentChanged', {

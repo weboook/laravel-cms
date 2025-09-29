@@ -131,6 +131,12 @@ class MediaController
             // Filter by folder if specified
             if ($request->has('folder_id')) {
                 $query->where('folder_id', $request->folder_id);
+            } elseif ($request->has('include_root')) {
+                // Show all items when viewing root folder
+                // Don't add any folder filter - show everything
+            } else {
+                // Default behavior - show items without folder
+                $query->whereNull('folder_id');
             }
 
             // Filter by type if specified
@@ -144,13 +150,12 @@ class MediaController
             // Order by newest first
             $query->orderBy('created_at', 'desc');
 
-            // Paginate
-            $perPage = $request->get('per_page', 24);
-            $media = $query->paginate($perPage);
+            // Get all media items
+            $media = $query->get();
 
             return response()->json([
                 'success' => true,
-                'media' => $media,
+                'media' => $media->toArray(),
             ]);
 
         } catch (\Exception $e) {
