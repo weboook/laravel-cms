@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Webook\LaravelCMS\Http\Controllers\ToolbarController;
 use Webook\LaravelCMS\Http\Controllers\ContentController;
+use Webook\LaravelCMS\Http\Controllers\MediaController;
 
 // CMS API routes (no authentication for toolbar functionality)
 Route::prefix('cms')->group(function () {
@@ -18,4 +19,9 @@ Route::prefix('cms')->group(function () {
     Route::post('/content/bulk-update', [ContentController::class, 'updateBulk']);
     Route::get('/content/backups', [ContentController::class, 'backups']);
     Route::post('/content/restore', [ContentController::class, 'restore']);
+
+    // Media management routes
+    Route::post('/media/upload', [MediaController::class, 'upload']);
+    Route::get('/media', [MediaController::class, 'list']);
+    Route::delete('/media/{id}', [MediaController::class, 'delete']);
 });

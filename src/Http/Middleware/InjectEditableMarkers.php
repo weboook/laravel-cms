@@ -25,7 +25,8 @@ class InjectEditableMarkers
         'blockquote',
         'figcaption',
         'a',
-        'button'
+        'button',
+        'img'
     ];
 
     public function handle(Request $request, Closure $next)
@@ -77,9 +78,23 @@ class InjectEditableMarkers
                     continue;
                 }
 
-                // For links and buttons, don't skip if empty (they might have only href)
+                // Skip toolbar elements
+                if ($this->isToolbarElement($element)) {
+                    continue;
+                }
+
+                // Check if it's database content
+                if ($this->isDatabaseContent($element)) {
+                    // Mark as component with coming soon message
+                    $element->setAttribute('data-cms-component', 'true');
+                    $element->setAttribute('data-cms-type', 'database');
+                    $element->setAttribute('data-cms-message', 'Editing database elements coming soon');
+                    continue;
+                }
+
+                // For links, buttons, and images, don't skip if empty
                 $tagName = strtolower($element->tagName);
-                if (!in_array($tagName, ['a', 'button']) && trim($element->textContent) === '') {
+                if (!in_array($tagName, ['a', 'button', 'img']) && trim($element->textContent) === '') {
                     continue;
                 }
 
@@ -197,6 +212,88 @@ class InjectEditableMarkers
         return 'cms-' . md5($tagName . '-' . $text . '-' . uniqid());
     }
 
+    protected function isToolbarElement($element)
+    {
+        // Check if element or any parent has cms-toolbar related classes/ids
+        $current = $element;
+        while ($current) {
+            if ($current->nodeType === XML_ELEMENT_NODE) {
+                // Check for toolbar-related IDs
+                if ($current->hasAttribute('id')) {
+                    $id = $current->getAttribute('id');
+                    if (strpos($id, 'cms-toolbar') !== false ||
+                        strpos($id, 'cms-modal') !== false ||
+                        strpos($id, 'cms-editor') !== false) {
+                        return true;
+                    }
+                }
+
+                // Check for toolbar-related classes
+                if ($current->hasAttribute('class')) {
+                    $class = $current->getAttribute('class');
+                    if (strpos($class, 'cms-toolbar') !== false ||
+                        strpos($class, 'cms-modal') !== false ||
+                        strpos($class, 'cms-btn') !== false ||
+                        strpos($class, 'cms-editor') !== false) {
+                        return true;
+                    }
+                }
+
+                // Check if it's within the toolbar div itself
+                if ($current->tagName === 'div' && $current->hasAttribute('id') && $current->getAttribute('id') === 'cms-toolbar') {
+                    return true;
+                }
+            }
+            $current = $current->parentNode;
+        }
+        return false;
+    }
+
+    protected function isDatabaseContent($element)
+    {
+        // Look for common indicators of database content
+        $indicators = [
+            '@foreach', '@forelse', '@for', '@while', // Blade loop directives
+            '{{', '{!!', // Blade echo statements
+            'v-for', 'v-if', ':key', // Vue.js directives
+            'ng-repeat', 'ng-for', '*ngFor', // Angular directives
+            'data-id', 'data-model', 'data-entity' // Common data attributes
+        ];
+
+        // Check element's outer HTML for indicators
+        $html = $element->ownerDocument->saveHTML($element);
+        foreach ($indicators as $indicator) {
+            if (strpos($html, $indicator) !== false) {
+                return true;
+            }
+        }
+
+        // Check if element has data attributes suggesting database content
+        if ($element->hasAttribute('data-id') ||
+            $element->hasAttribute('data-model') ||
+            $element->hasAttribute('data-entity') ||
+            $element->hasAttribute('data-record')) {
+            return true;
+        }
+
+        // Check parent elements for loop structures
+        $parent = $element->parentNode;
+        $depth = 0;
+        while ($parent && $depth < 5) {
+            if ($parent->nodeType === XML_ELEMENT_NODE) {
+                $parentHtml = $parent->ownerDocument->saveHTML($parent);
+                // Check for Blade directives in parent
+                if (preg_match('/@(foreach|forelse|for|while)\s*\(/', $parentHtml)) {
+                    return true;
+                }
+            }
+            $parent = $parent->parentNode;
+            $depth++;
+        }
+
+        return false;
+    }
+
     protected function getEditableAssets()
     {
         return <<<HTML
@@ -223,10 +320,21 @@ class InjectEditableMarkers
         background-color: rgba(0, 102, 255, 0.1);
     }
 
-    /* Link and Button specific styles */
+    /* Link, Button and Image specific styles */
     body.cms-edit-mode [data-cms-type="link"],
-    body.cms-edit-mode [data-cms-type="button"] {
+    body.cms-edit-mode [data-cms-type="button"],
+    body.cms-edit-mode [data-cms-type="image"] {
         position: relative;
+    }
+
+    body.cms-edit-mode [data-cms-type="image"] {
+        outline: 2px dashed transparent;
+        outline-offset: 4px;
+        transition: all 0.2s ease;
+    }
+
+    body.cms-edit-mode [data-cms-type="image"]:hover {
+        outline-color: #0066ff;
     }
 
     .cms-link-wrapper {
@@ -263,9 +371,10 @@ class InjectEditableMarkers
         fill: white;
     }
 
-    /* Show gear on hover of link or when gear has hover */
+    /* Show gear on hover of link, button, or image */
     body.cms-edit-mode [data-cms-type="link"]:hover .cms-link-gear,
     body.cms-edit-mode [data-cms-type="button"]:hover .cms-link-gear,
+    body.cms-edit-mode [data-cms-type="image"]:hover .cms-link-gear,
     body.cms-edit-mode .cms-link-gear:hover,
     body.cms-edit-mode .cms-link-gear.visible {
         display: flex;
@@ -273,7 +382,8 @@ class InjectEditableMarkers
 
     /* Invisible bridge to maintain hover */
     body.cms-edit-mode [data-cms-type="link"]::after,
-    body.cms-edit-mode [data-cms-type="button"]::after {
+    body.cms-edit-mode [data-cms-type="button"]::after,
+    body.cms-edit-mode [data-cms-type="image"]::after {
         content: '';
         position: absolute;
         top: 50%;
@@ -286,7 +396,8 @@ class InjectEditableMarkers
     }
 
     body.cms-edit-mode [data-cms-type="link"]:hover::after,
-    body.cms-edit-mode [data-cms-type="button"]:hover::after {
+    body.cms-edit-mode [data-cms-type="button"]:hover::after,
+    body.cms-edit-mode [data-cms-type="image"]:hover::after {
         pointer-events: auto;
     }
 
@@ -372,6 +483,38 @@ class InjectEditableMarkers
         height: 14px;
         fill: currentColor;
     }
+
+    /* Database component styles */
+    body.cms-edit-mode [data-cms-component="true"] {
+        position: relative;
+        outline: 2px dashed #ff6b6b;
+        outline-offset: 4px;
+        background-color: rgba(255, 107, 107, 0.05);
+        cursor: not-allowed;
+    }
+
+    body.cms-edit-mode [data-cms-component="true"]::after {
+        content: attr(data-cms-message);
+        position: absolute;
+        top: -28px;
+        left: 0;
+        background: linear-gradient(90deg, #ff6b6b, #ff8787);
+        color: white;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        z-index: 10001;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+    }
+
+    body.cms-edit-mode [data-cms-component="true"]:hover::after {
+        opacity: 1;
+    }
 </style>
 
 <script id="cms-editable-script">
@@ -404,8 +547,8 @@ class InjectEditableMarkers
             editables.forEach(element => {
                 const type = element.getAttribute('data-cms-type');
 
-                // Handle links and buttons differently
-                if (type === 'link' || type === 'button') {
+                // Handle links, buttons, and images with gear icon
+                if (type === 'link' || type === 'button' || type === 'image') {
                     initializeLinkElement(element);
                 } else {
                     // Remove any existing listeners
@@ -469,7 +612,12 @@ class InjectEditableMarkers
             gear.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                openLinkEditor(element);
+                const type = element.getAttribute('data-cms-type');
+                if (type === 'image') {
+                    openImageEditor(element);
+                } else {
+                    openLinkEditor(element);
+                }
             });
         }
 
@@ -508,6 +656,28 @@ class InjectEditableMarkers
                     text: linkText,
                     href: linkHref,
                     newTab: linkTarget,
+                    element: element
+                }
+            });
+            document.dispatchEvent(event);
+        }
+
+        // Open image editor modal
+        function openImageEditor(element) {
+            const imageSrc = element.getAttribute('src') || '';
+            const imageAlt = element.getAttribute('alt') || '';
+            const imageTitle = element.getAttribute('title') || '';
+
+            // Store reference to current element
+            window.CMS = window.CMS || {};
+            window.CMS.currentImageElement = element;
+
+            // Dispatch event to open modal
+            const event = new CustomEvent('cms:openImageEditor', {
+                detail: {
+                    src: imageSrc,
+                    alt: imageAlt,
+                    title: imageTitle,
                     element: element
                 }
             });

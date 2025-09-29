@@ -196,6 +196,67 @@
             </div>
         </div>
     </div>
+
+    {{-- Image Editor Modal --}}
+    <div class="cms-modal cms-modal-image-editor" data-modal="image-editor" style="display: none;">
+        <div class="cms-modal-header">
+            <h2>Change Image</h2>
+            <button class="cms-modal-close">&times;</button>
+        </div>
+        <div class="cms-modal-body">
+            <div class="cms-image-editor-tabs">
+                <button class="cms-tab-btn active" data-tab="upload">Upload New</button>
+                <button class="cms-tab-btn" data-tab="library">Media Library</button>
+            </div>
+
+            <div class="cms-tab-content" data-tab="upload">
+                <div class="cms-dropzone" id="cms-image-dropzone">
+                    <div class="cms-dropzone-inner">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p class="cms-dropzone-text">Drop image here or click to upload</p>
+                        <p class="cms-dropzone-subtext">JPG, PNG, GIF, SVG, WebP (Max 10MB)</p>
+                        <input type="file" id="cms-image-upload" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+
+                <div class="cms-image-preview" id="cms-image-preview" style="display: none;">
+                    <img id="cms-preview-img" src="" alt="Preview">
+                    <button class="cms-btn cms-btn-small" id="cms-change-image">Change Image</button>
+                </div>
+
+                <div class="cms-setting-group">
+                    <label class="cms-label">Alt Text</label>
+                    <input type="text" class="cms-input" id="cms-image-alt" placeholder="Describe the image for accessibility...">
+                </div>
+
+                <div class="cms-setting-group">
+                    <label class="cms-label">Title</label>
+                    <input type="text" class="cms-input" id="cms-image-title" placeholder="Image title (optional)">
+                </div>
+            </div>
+
+            <div class="cms-tab-content" data-tab="library" style="display: none;">
+                <div class="cms-media-library-placeholder">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <h3>Media Library Coming Soon</h3>
+                    <p>The media library feature will allow you to browse and select from previously uploaded images.</p>
+                </div>
+            </div>
+
+            <div class="cms-setting-group cms-image-actions">
+                <button class="cms-btn cms-btn-primary" id="cms-save-image" disabled>Save Changes</button>
+                <button class="cms-btn" id="cms-cancel-image">Cancel</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -567,6 +628,134 @@
             display: none !important;
         }
     }
+
+    /* Image Editor Modal Styles */
+    .cms-image-editor-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #444;
+    }
+
+    .cms-tab-btn {
+        background: transparent;
+        border: none;
+        color: #999;
+        padding: 10px 20px;
+        cursor: pointer;
+        font-size: 14px;
+        position: relative;
+        transition: all 0.2s;
+    }
+
+    .cms-tab-btn:hover {
+        color: #fff;
+    }
+
+    .cms-tab-btn.active {
+        color: #0066ff;
+    }
+
+    .cms-tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #0066ff;
+    }
+
+    .cms-tab-content {
+        min-height: 200px;
+    }
+
+    .cms-dropzone {
+        border: 2px dashed #444;
+        border-radius: 8px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #1a1a1a;
+        margin-bottom: 20px;
+    }
+
+    .cms-dropzone:hover {
+        border-color: #0066ff;
+        background: #222;
+    }
+
+    .cms-dropzone.dragover {
+        border-color: #0066ff;
+        background: rgba(0, 102, 255, 0.1);
+    }
+
+    .cms-dropzone-inner svg {
+        color: #666;
+        margin-bottom: 12px;
+    }
+
+    .cms-dropzone-text {
+        color: #e0e0e0;
+        font-size: 16px;
+        margin: 10px 0 5px 0;
+    }
+
+    .cms-dropzone-subtext {
+        color: #999;
+        font-size: 13px;
+        margin: 0;
+    }
+
+    .cms-image-preview {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 20px;
+        background: #1a1a1a;
+        border-radius: 8px;
+    }
+
+    .cms-image-preview img {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+
+    .cms-btn-small {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    .cms-media-library-placeholder {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+    .cms-media-library-placeholder svg {
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .cms-media-library-placeholder h3 {
+        color: #e0e0e0;
+        margin: 20px 0 10px 0;
+    }
+
+    .cms-media-library-placeholder p {
+        margin: 0;
+        font-size: 14px;
+    }
+
+    .cms-image-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #444;
+    }
 </style>
 
 <script>
@@ -673,6 +862,12 @@
                 document.addEventListener('cms:openLinkEditor', handleOpenLinkEditor);
                 document.getElementById('cms-save-link')?.addEventListener('click', saveLinkChanges);
                 document.getElementById('cms-cancel-link')?.addEventListener('click', () => closeModal());
+
+                // Image editor handlers
+                document.addEventListener('cms:openImageEditor', handleOpenImageEditor);
+                document.getElementById('cms-save-image')?.addEventListener('click', saveImageChanges);
+                document.getElementById('cms-cancel-image')?.addEventListener('click', () => closeModal());
+                setupImageDropzone();
 
                 // Content change handler
                 document.addEventListener('cms:contentChanged', handleContentChanged);
@@ -988,6 +1183,211 @@
                 document.dispatchEvent(event);
 
                 closeModal();
+            }
+
+            // Handle open image editor
+            function handleOpenImageEditor(e) {
+                const detail = e.detail;
+
+                // Fill the form
+                document.getElementById('cms-image-alt').value = detail.alt || '';
+                document.getElementById('cms-image-title').value = detail.title || '';
+
+                // Show current image preview
+                const previewImg = document.getElementById('cms-preview-img');
+                if (detail.src) {
+                    previewImg.src = detail.src;
+                    document.getElementById('cms-image-preview').style.display = 'block';
+                    document.getElementById('cms-image-dropzone').style.display = 'none';
+                }
+
+                // Open the modal
+                openModal('image-editor');
+            }
+
+            // Setup image dropzone
+            function setupImageDropzone() {
+                const dropzone = document.getElementById('cms-image-dropzone');
+                const fileInput = document.getElementById('cms-image-upload');
+                const preview = document.getElementById('cms-image-preview');
+                const previewImg = document.getElementById('cms-preview-img');
+                const saveBtn = document.getElementById('cms-save-image');
+                const changeBtn = document.getElementById('cms-change-image');
+
+                if (!dropzone || !fileInput) return;
+
+                let selectedFile = null;
+
+                // Tab switching
+                document.querySelectorAll('.cms-tab-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const tab = this.dataset.tab;
+
+                        // Update active tab button
+                        document.querySelectorAll('.cms-tab-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+
+                        // Show/hide tab content
+                        document.querySelectorAll('.cms-tab-content').forEach(content => {
+                            if (content.dataset.tab === tab) {
+                                content.style.display = 'block';
+                            } else {
+                                content.style.display = 'none';
+                            }
+                        });
+                    });
+                });
+
+                // Click to upload
+                dropzone.addEventListener('click', () => fileInput.click());
+
+                // Change image button
+                changeBtn?.addEventListener('click', () => {
+                    dropzone.style.display = 'block';
+                    preview.style.display = 'none';
+                    selectedFile = null;
+                    saveBtn.disabled = true;
+                });
+
+                // File input change
+                fileInput.addEventListener('change', handleFileSelect);
+
+                // Drag and drop
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.add('dragover');
+                });
+
+                dropzone.addEventListener('dragleave', () => {
+                    dropzone.classList.remove('dragover');
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('dragover');
+
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        handleFile(files[0]);
+                    }
+                });
+
+                function handleFileSelect(e) {
+                    const files = e.target.files;
+                    if (files.length > 0) {
+                        handleFile(files[0]);
+                    }
+                }
+
+                function handleFile(file) {
+                    // Validate file type
+                    if (!file.type.startsWith('image/')) {
+                        alert('Please select an image file');
+                        return;
+                    }
+
+                    // Validate file size (10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                        alert('File size must be less than 10MB');
+                        return;
+                    }
+
+                    selectedFile = file;
+
+                    // Show preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImg.src = e.target.result;
+                        dropzone.style.display = 'none';
+                        preview.style.display = 'block';
+                        saveBtn.disabled = false;
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                window.CMS.selectedImageFile = () => selectedFile;
+            }
+
+            // Save image changes
+            function saveImageChanges() {
+                const element = window.CMS.currentImageElement;
+                if (!element) return;
+
+                const newAlt = document.getElementById('cms-image-alt').value;
+                const newTitle = document.getElementById('cms-image-title').value;
+                const selectedFile = window.CMS.selectedImageFile?.();
+
+                // Update alt and title
+                if (newAlt !== undefined) element.setAttribute('alt', newAlt);
+                if (newTitle !== undefined) element.setAttribute('title', newTitle);
+
+                // If a new file was selected, upload it
+                if (selectedFile) {
+                    uploadImage(selectedFile, element);
+                } else {
+                    // Just save the alt/title changes
+                    const event = new CustomEvent('cms:contentChanged', {
+                        detail: {
+                            id: element.getAttribute('data-cms-id'),
+                            type: 'image',
+                            alt: newAlt,
+                            title: newTitle,
+                            element: element
+                        }
+                    });
+                    document.dispatchEvent(event);
+                    closeModal();
+                }
+            }
+
+            // Upload image
+            function uploadImage(file, element) {
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('element_id', element.getAttribute('data-cms-id'));
+
+                // Show loading state
+                const saveBtn = document.getElementById('cms-save-image');
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = 'Uploading...';
+                saveBtn.disabled = true;
+
+                fetch(apiBaseUrl + '/media/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.url) {
+                        // Update the image src
+                        element.setAttribute('src', data.url);
+
+                        // Trigger save event
+                        const event = new CustomEvent('cms:contentChanged', {
+                            detail: {
+                                id: element.getAttribute('data-cms-id'),
+                                type: 'image',
+                                src: data.url,
+                                alt: document.getElementById('cms-image-alt').value,
+                                title: document.getElementById('cms-image-title').value,
+                                element: element
+                            }
+                        });
+                        document.dispatchEvent(event);
+
+                        closeModal();
+                    } else {
+                        alert('Failed to upload image: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Upload error:', error);
+                    alert('Failed to upload image');
+                })
+                .finally(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.disabled = false;
+                });
             }
 
             // Handle content changed event
