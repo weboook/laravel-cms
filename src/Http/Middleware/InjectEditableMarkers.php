@@ -249,6 +249,8 @@ class InjectEditableMarkers
                     strpos($id, 'cms-') !== false ||
                     $id === 'cms-toolbar' ||
                     $id === 'cms-modal-container' ||
+                    $id === 'cms-pages-list' ||
+                    $id === 'cms-languages-list' ||
                     strpos($id, 'cms-editable-') === 0) {
                     return true;
                 }
@@ -258,7 +260,9 @@ class InjectEditableMarkers
             if ($current->hasAttribute('class')) {
                 $class = $current->getAttribute('class');
                 if (strpos($class, 'cms-') !== false || // Any class with 'cms-'
-                    strpos($class, 'cms') === 0) { // Any class starting with 'cms'
+                    strpos($class, 'cms') === 0 || // Any class starting with 'cms'
+                    strpos($class, 'cms-page-item') !== false ||
+                    strpos($class, 'cms-language-item') !== false) {
                     return true;
                 }
             }
@@ -369,6 +373,21 @@ class InjectEditableMarkers
         outline-color: #0066ff;
     }
 
+    /* Image wrapper styles */
+    .cms-image-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    .cms-image-wrapper img {
+        display: block;
+    }
+
+    body.cms-edit-mode .cms-image-wrapper:hover img {
+        outline: 2px dashed #0066ff;
+        outline-offset: 4px;
+    }
+
     .cms-link-wrapper {
         position: relative;
         display: inline-block;
@@ -393,7 +412,8 @@ class InjectEditableMarkers
     }
 
     /* Adjust gear position for images */
-    body.cms-edit-mode [data-cms-type="image"] .cms-link-gear {
+    body.cms-edit-mode [data-cms-type="image"] .cms-link-gear,
+    body.cms-edit-mode .cms-image-wrapper .cms-link-gear {
         top: 10px;
         right: 10px;
         transform: none;
@@ -404,7 +424,8 @@ class InjectEditableMarkers
         transform: translateY(-50%) scale(1.1);
     }
 
-    body.cms-edit-mode [data-cms-type="image"] .cms-link-gear:hover {
+    body.cms-edit-mode [data-cms-type="image"] .cms-link-gear:hover,
+    body.cms-edit-mode .cms-image-wrapper .cms-link-gear:hover {
         transform: scale(1.1);
     }
 
@@ -418,6 +439,7 @@ class InjectEditableMarkers
     body.cms-edit-mode [data-cms-type="link"]:hover .cms-link-gear,
     body.cms-edit-mode [data-cms-type="button"]:hover .cms-link-gear,
     body.cms-edit-mode [data-cms-type="image"]:hover .cms-link-gear,
+    body.cms-edit-mode .cms-image-wrapper:hover .cms-link-gear,
     body.cms-edit-mode .cms-link-gear:hover,
     body.cms-edit-mode .cms-link-gear.visible {
         display: flex;
@@ -604,6 +626,37 @@ class InjectEditableMarkers
 
         // Initialize link elements with gear icon
         function initializeLinkElement(element) {
+            const type = element.getAttribute('data-cms-type');
+
+            // For images, we need to wrap them in a container since images can't have children
+            if (type === 'image') {
+                // Check if already wrapped
+                if (element.parentElement && element.parentElement.classList.contains('cms-image-wrapper')) {
+                    // Already wrapped, just ensure gear is there
+                    if (!element.parentElement.querySelector('.cms-link-gear')) {
+                        createGearForImage(element.parentElement, element);
+                    }
+                    return;
+                }
+
+                // Create wrapper
+                const wrapper = document.createElement('span');
+                wrapper.className = 'cms-image-wrapper';
+                wrapper.setAttribute('data-cms-ignore', 'true');
+
+                // Copy data attributes to wrapper for styling
+                wrapper.setAttribute('data-cms-type', 'image');
+
+                // Insert wrapper before image and move image into it
+                element.parentNode.insertBefore(wrapper, element);
+                wrapper.appendChild(element);
+
+                // Create gear for wrapper
+                createGearForImage(wrapper, element);
+                return;
+            }
+
+            // For links and buttons, handle normally
             // Remove existing gear if any
             const existingGear = element.querySelector('.cms-link-gear');
             if (existingGear) {
@@ -662,6 +715,50 @@ class InjectEditableMarkers
                 } else {
                     openLinkEditor(element);
                 }
+            });
+        }
+
+        // Create gear for image wrapper
+        function createGearForImage(wrapper, imageElement) {
+            // Create gear icon
+            const gear = document.createElement('div');
+            gear.className = 'cms-link-gear';
+            gear.setAttribute('data-cms-ignore', 'true');
+            gear.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334zm0 5.334c-1.105 0-2-.896-2-2s.895-2 2-2 2 .896 2 2-.895 2-2 2zm7.04-2.404l1.313-.988c.185-.139.23-.386.119-.579l-1.24-2.148c-.11-.193-.359-.244-.534-.137l-1.540.617c-.449-.331-.949-.596-1.489-.784l-.234-1.644c-.038-.218-.237-.382-.456-.382h-2.478c-.219 0-.418.164-.456.382l-.234 1.644c-.540.188-1.04.453-1.489.784l-1.54-.617c-.175-.107-.424-.056-.534.137l-1.24 2.148c-.11.193-.066.44.119.579l1.313.988c-.05.261-.081.53-.081.809s.031.548.081.809l-1.313.988c-.185.139-.23.386-.119.579l1.24 2.148c.11.193.359.244.534.137l1.54-.617c.449.331.949.596 1.489.784l.234 1.644c.038.218.237.382.456.382h2.478c.219 0 .418-.164.456-.382l.234-1.644c.540-.188 1.04-.453 1.489-.784l1.54.617c.175.107.424.056.534-.137l1.24-2.148c.11-.193.066-.44-.119-.579l-1.313-.988c.05-.261.081-.53.081-.809s-.031-.548-.081-.809z"/></svg>';
+            wrapper.appendChild(gear);
+
+            // Add hover handlers
+            let hoverTimeout;
+
+            wrapper.addEventListener('mouseenter', function() {
+                clearTimeout(hoverTimeout);
+                gear.classList.add('visible');
+            });
+
+            wrapper.addEventListener('mouseleave', function() {
+                hoverTimeout = setTimeout(() => {
+                    if (!gear.matches(':hover')) {
+                        gear.classList.remove('visible');
+                    }
+                }, 200);
+            });
+
+            gear.addEventListener('mouseenter', function() {
+                clearTimeout(hoverTimeout);
+                gear.classList.add('visible');
+            });
+
+            gear.addEventListener('mouseleave', function() {
+                hoverTimeout = setTimeout(() => {
+                    gear.classList.remove('visible');
+                }, 200);
+            });
+
+            // Add click handler to gear
+            gear.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openImageEditor(imageElement);
             });
         }
 
