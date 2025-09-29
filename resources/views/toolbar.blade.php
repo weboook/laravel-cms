@@ -3,14 +3,14 @@
         {{-- Left Section: Edit/Preview Mode Toggle --}}
         <div class="cms-toolbar-section cms-toolbar-left">
             <div class="cms-mode-toggle">
-                <button class="cms-btn cms-btn-mode cms-btn-edit active" data-mode="edit">
+                <button class="cms-btn cms-btn-mode cms-btn-edit" data-mode="edit">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
                     <span>Edit</span>
                 </button>
-                <button class="cms-btn cms-btn-mode cms-btn-preview" data-mode="preview">
+                <button class="cms-btn cms-btn-mode cms-btn-preview active" data-mode="preview">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                         <circle cx="12" cy="12" r="3"></circle>
@@ -612,7 +612,7 @@
 
             // Load Languages
             function loadLanguages() {
-                fetch('/cms/api/languages')
+                fetch('/api/cms/languages')
                     .then(response => response.json())
                     .then(data => {
                         availableLanguages = data.available;
@@ -636,7 +636,7 @@
 
             // Load Pages
             function loadPages() {
-                fetch('/cms/api/pages')
+                fetch('/api/cms/pages')
                     .then(response => response.json())
                     .then(data => {
                         availablePages = data.pages || [];
@@ -830,7 +830,7 @@
 
             // Load Settings
             function loadSettings() {
-                fetch('/cms/api/settings')
+                fetch('/api/cms/settings')
                     .then(response => response.json())
                     .then(data => {
                         document.getElementById('cms-setting-enabled').checked = data.enabled;
@@ -854,7 +854,7 @@
                     }
                 };
 
-                fetch('/cms/api/settings', {
+                fetch('/api/cms/settings', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

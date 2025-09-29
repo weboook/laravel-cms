@@ -40,7 +40,6 @@ return [
 
     'middleware' => [
         'web',
-        'auth',
     ],
 
     'route_prefix' => 'cms',
