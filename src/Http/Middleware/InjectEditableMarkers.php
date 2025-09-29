@@ -74,12 +74,13 @@ class InjectEditableMarkers
 
             foreach ($elements as $element) {
                 // Skip if already marked
-                if ($element->hasAttribute('data-cms-editable')) {
+                if ($element->hasAttribute('data-cms-editable') ||
+                    $element->hasAttribute('data-cms-component')) {
                     continue;
                 }
 
-                // Skip toolbar elements
-                if ($this->isToolbarElement($element)) {
+                // Skip toolbar elements and CMS injected elements
+                if ($this->isToolbarElement($element) || $this->isCMSInjectedElement($element)) {
                     continue;
                 }
 
@@ -212,38 +213,68 @@ class InjectEditableMarkers
         return 'cms-' . md5($tagName . '-' . $text . '-' . uniqid());
     }
 
+    protected function isCMSInjectedElement($element)
+    {
+        // Check if element is within a script or style tag that we injected
+        $current = $element;
+        while ($current && $current->nodeType === XML_ELEMENT_NODE) {
+            $tagName = strtolower($current->tagName);
+
+            // Skip if inside script or style tags
+            if ($tagName === 'script' || $tagName === 'style') {
+                // Check if it's a CMS-injected script/style
+                if ($current->hasAttribute('id')) {
+                    $id = $current->getAttribute('id');
+                    if (strpos($id, 'cms-') === 0) {
+                        return true;
+                    }
+                }
+                return true; // Skip all scripts and styles to be safe
+            }
+
+            $current = $current->parentNode;
+        }
+        return false;
+    }
+
     protected function isToolbarElement($element)
     {
         // Check if element or any parent has cms-toolbar related classes/ids
         $current = $element;
-        while ($current) {
-            if ($current->nodeType === XML_ELEMENT_NODE) {
-                // Check for toolbar-related IDs
-                if ($current->hasAttribute('id')) {
-                    $id = $current->getAttribute('id');
-                    if (strpos($id, 'cms-toolbar') !== false ||
-                        strpos($id, 'cms-modal') !== false ||
-                        strpos($id, 'cms-editor') !== false) {
-                        return true;
-                    }
-                }
-
-                // Check for toolbar-related classes
-                if ($current->hasAttribute('class')) {
-                    $class = $current->getAttribute('class');
-                    if (strpos($class, 'cms-toolbar') !== false ||
-                        strpos($class, 'cms-modal') !== false ||
-                        strpos($class, 'cms-btn') !== false ||
-                        strpos($class, 'cms-editor') !== false) {
-                        return true;
-                    }
-                }
-
-                // Check if it's within the toolbar div itself
-                if ($current->tagName === 'div' && $current->hasAttribute('id') && $current->getAttribute('id') === 'cms-toolbar') {
+        while ($current && $current->nodeType === XML_ELEMENT_NODE) {
+            // Check for toolbar-related IDs - be more comprehensive
+            if ($current->hasAttribute('id')) {
+                $id = $current->getAttribute('id');
+                if (strpos($id, 'cms') === 0 || // Any ID starting with 'cms'
+                    strpos($id, 'cms-') !== false ||
+                    $id === 'cms-toolbar' ||
+                    $id === 'cms-modal-container' ||
+                    strpos($id, 'cms-editable-') === 0) {
                     return true;
                 }
             }
+
+            // Check for toolbar-related classes - be more comprehensive
+            if ($current->hasAttribute('class')) {
+                $class = $current->getAttribute('class');
+                if (strpos($class, 'cms-') !== false || // Any class with 'cms-'
+                    strpos($class, 'cms') === 0) { // Any class starting with 'cms'
+                    return true;
+                }
+            }
+
+            // Check for data attributes that indicate CMS elements
+            if ($current->hasAttribute('data-modal') ||
+                $current->hasAttribute('data-mode') ||
+                $current->hasAttribute('data-tab') ||
+                $current->hasAttribute('data-lang') ||
+                $current->hasAttribute('data-path') ||
+                $current->hasAttribute('data-template') ||
+                $current->hasAttribute('data-cms-ignore')) {
+                return true;
+            }
+
+            // Move up to parent
             $current = $current->parentNode;
         }
         return false;
@@ -570,6 +601,7 @@ class InjectEditableMarkers
             // Create gear icon
             const gear = document.createElement('div');
             gear.className = 'cms-link-gear';
+            gear.setAttribute('data-cms-ignore', 'true'); // Mark to be ignored
             gear.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334zm0 5.334c-1.105 0-2-.896-2-2s.895-2 2-2 2 .896 2 2-.895 2-2 2zm7.04-2.404l1.313-.988c.185-.139.23-.386.119-.579l-1.24-2.148c-.11-.193-.359-.244-.534-.137l-1.540.617c-.449-.331-.949-.596-1.489-.784l-.234-1.644c-.038-.218-.237-.382-.456-.382h-2.478c-.219 0-.418.164-.456.382l-.234 1.644c-.540.188-1.04.453-1.489.784l-1.54-.617c-.175-.107-.424-.056-.534.137l-1.24 2.148c-.11.193-.066.44.119.579l1.313.988c-.05.261-.081.53-.081.809s.031.548.081.809l-1.313.988c-.185.139-.23.386-.119.579l1.24 2.148c.11.193.359.244.534.137l1.54-.617c.449.331.949.596 1.489.784l.234 1.644c.038.218.237.382.456.382h2.478c.219 0 .418-.164.456-.382l.234-1.644c.540-.188 1.04-.453 1.489-.784l1.54.617c.175.107.424.056.534-.137l1.24-2.148c.11-.193.066-.44-.119-.579l-1.313-.988c.05-.261.081-.53.081-.809s-.031-.548-.081-.809z"/></svg>';
             element.appendChild(gear);
 
@@ -707,6 +739,7 @@ class InjectEditableMarkers
 
             // Create toolbar
             const toolbar = createEditorToolbar(element);
+            toolbar.setAttribute('data-cms-ignore', 'true'); // Mark to be ignored
             element.parentElement.appendChild(toolbar);
 
             // Handle blur
