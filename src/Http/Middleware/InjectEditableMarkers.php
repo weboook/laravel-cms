@@ -61,6 +61,11 @@ class InjectEditableMarkers
 
     protected function injectMarkers($html)
     {
+        // Only inject permanent CMS IDs if elements are missing them
+        if ($this->needsCmsIdInjection($html)) {
+            $html = $this->injectPermanentCmsIds($html);
+        }
+
         // Add data attributes to editable elements
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
@@ -86,10 +91,29 @@ class InjectEditableMarkers
 
                 // Check if it's database content
                 if ($this->isDatabaseContent($element)) {
-                    // Mark as component with coming soon message
+                    // Mark as component with appropriate message
                     $element->setAttribute('data-cms-component', 'true');
                     $element->setAttribute('data-cms-type', 'database');
-                    $element->setAttribute('data-cms-message', 'Editing database elements coming soon');
+
+                    // Provide helpful context based on element type
+                    $tagName = strtolower($element->tagName);
+                    $message = 'Dynamic content - Edit in admin panel';
+
+                    // Customize message based on content type
+                    if ($element->hasAttribute('class')) {
+                        $classes = $element->getAttribute('class');
+                        if (strpos($classes, 'product') !== false) {
+                            $message = 'Product data - Edit in admin panel';
+                        } elseif (strpos($classes, 'post') !== false || strpos($classes, 'blog') !== false) {
+                            $message = 'Blog post - Edit in admin panel';
+                        } elseif (strpos($classes, 'user') !== false || strpos($classes, 'author') !== false) {
+                            $message = 'User data - Edit in admin panel';
+                        } elseif (strpos($classes, 'comment') !== false || strpos($classes, 'review') !== false) {
+                            $message = 'User-generated content - Manage in admin';
+                        }
+                    }
+
+                    $element->setAttribute('data-cms-message', $message);
                     continue;
                 }
 
@@ -104,10 +128,13 @@ class InjectEditableMarkers
                     continue;
                 }
 
+                // Generate or use existing data-cms-id
+                $cmsId = $this->ensureCmsId($element);
+
                 // Add editable attributes
                 $element->setAttribute('data-cms-editable', 'true');
                 $element->setAttribute('data-cms-type', $this->getContentType($element));
-                $element->setAttribute('data-cms-id', $this->generateContentId($element));
+                $element->setAttribute('data-cms-id', $cmsId);
                 $element->setAttribute('data-cms-original', trim($element->textContent));
             }
         }
@@ -208,9 +235,79 @@ class InjectEditableMarkers
 
     protected function generateContentId($element)
     {
-        $text = substr(trim($element->textContent), 0, 20);
-        $tagName = $element->tagName;
-        return 'cms-' . md5($tagName . '-' . $text . '-' . uniqid());
+        $tagName = strtolower($element->tagName);
+
+        // For images, use src attribute for more stable ID
+        if ($tagName === 'img') {
+            $src = $element->getAttribute('src');
+            if ($src) {
+                // Extract filename from src
+                $filename = basename(parse_url($src, PHP_URL_PATH));
+                $filename = pathinfo($filename, PATHINFO_FILENAME);
+                return 'img-' . substr(md5($filename . $src), 0, 16);
+            }
+        }
+
+        // For links, use href for more stable ID
+        if ($tagName === 'a') {
+            $href = $element->getAttribute('href');
+            $text = substr(trim($element->textContent), 0, 20);
+            return 'link-' . substr(md5($href . $text), 0, 16);
+        }
+
+        // For other elements
+        $text = substr(trim($element->textContent), 0, 30);
+        $classes = $element->getAttribute('class');
+        return $tagName . '-' . substr(md5($text . $classes), 0, 16);
+    }
+
+    /**
+     * Ensure element has a data-cms-id, generate if missing
+     */
+    protected function ensureCmsId($element)
+    {
+        // Check if element already has data-cms-id
+        if ($element->hasAttribute('data-cms-id')) {
+            return $element->getAttribute('data-cms-id');
+        }
+
+        // Generate a stable, unique ID
+        $cmsId = $this->generateContentId($element);
+
+        // Store for potential Blade file update
+        $this->trackGeneratedId($element, $cmsId);
+
+        return $cmsId;
+    }
+
+    /**
+     * Track generated IDs for potential Blade file updates
+     */
+    protected function trackGeneratedId($element, $cmsId)
+    {
+        // Store information about generated IDs
+        // This could be used by a separate process to update Blade files
+        if (!isset($GLOBALS['cms_generated_ids'])) {
+            $GLOBALS['cms_generated_ids'] = [];
+        }
+
+        $tagName = strtolower($element->tagName);
+        $elementInfo = [
+            'id' => $cmsId,
+            'tag' => $tagName,
+            'html' => $element->ownerDocument->saveHTML($element)
+        ];
+
+        // For images and links, store additional identifying info
+        if ($tagName === 'img') {
+            $elementInfo['src'] = $element->getAttribute('src');
+            $elementInfo['alt'] = $element->getAttribute('alt');
+        } elseif ($tagName === 'a') {
+            $elementInfo['href'] = $element->getAttribute('href');
+            $elementInfo['text'] = trim($element->textContent);
+        }
+
+        $GLOBALS['cms_generated_ids'][] = $elementInfo;
     }
 
     protected function isCMSInjectedElement($element)
@@ -286,44 +383,129 @@ class InjectEditableMarkers
 
     protected function isDatabaseContent($element)
     {
-        // Look for common indicators of database content
-        $indicators = [
-            '@foreach', '@forelse', '@for', '@while', // Blade loop directives
-            '{{', '{!!', // Blade echo statements
-            'v-for', 'v-if', ':key', // Vue.js directives
-            'ng-repeat', 'ng-for', '*ngFor', // Angular directives
-            'data-id', 'data-model', 'data-entity' // Common data attributes
+        // Check element's content for Blade variables and directives
+        $elementContent = $element->textContent;
+
+        // Check for Blade variable syntax in the actual rendered content
+        // If we see variable names or method calls, it's likely dynamic
+        if (preg_match('/\$[a-zA-Z_][a-zA-Z0-9_]*/', $elementContent) ||
+            preg_match('/->\\w+/', $elementContent) ||
+            preg_match('/\[\s*[\'"]\\w+[\'"]\s*\]/', $elementContent)) {
+            return true;
+        }
+
+        // Check if element has database-related data attributes
+        $dbAttributes = [
+            'data-id', 'data-model', 'data-entity', 'data-record',
+            'data-model-id', 'data-product-id', 'data-post-id',
+            'data-user-id', 'data-item-id', 'data-row-id'
         ];
 
-        // Check element's outer HTML for indicators
-        $html = $element->ownerDocument->saveHTML($element);
-        foreach ($indicators as $indicator) {
-            if (strpos($html, $indicator) !== false) {
+        foreach ($dbAttributes as $attr) {
+            if ($element->hasAttribute($attr)) {
                 return true;
             }
         }
 
-        // Check if element has data attributes suggesting database content
-        if ($element->hasAttribute('data-id') ||
-            $element->hasAttribute('data-model') ||
-            $element->hasAttribute('data-entity') ||
-            $element->hasAttribute('data-record')) {
-            return true;
+        // Check for common database content patterns in classes
+        if ($element->hasAttribute('class')) {
+            $classes = $element->getAttribute('class');
+            $dbClassPatterns = [
+                'product-', 'post-', 'article-', 'item-', 'record-',
+                'blog-', 'news-', 'event-', 'listing-', 'entry-',
+                'comment-', 'review-', 'user-', 'author-', 'meta-',
+                'category-', 'tag-', 'taxonomy-'
+            ];
+
+            foreach ($dbClassPatterns as $pattern) {
+                if (strpos($classes, $pattern) !== false) {
+                    return true;
+                }
+            }
         }
 
-        // Check parent elements for loop structures
+        // Check if element is within a loop structure
         $parent = $element->parentNode;
         $depth = 0;
-        while ($parent && $depth < 5) {
+        while ($parent && $depth < 7) {
             if ($parent->nodeType === XML_ELEMENT_NODE) {
-                $parentHtml = $parent->ownerDocument->saveHTML($parent);
-                // Check for Blade directives in parent
-                if (preg_match('/@(foreach|forelse|for|while)\s*\(/', $parentHtml)) {
+                // Check for loop indicators in parent classes
+                if ($parent->hasAttribute('class')) {
+                    $parentClasses = $parent->getAttribute('class');
+                    if (preg_match('/(loop|list|items|results|entries|posts|products|grid|feed|stream)/i', $parentClasses)) {
+                        // If parent is a list/loop container, this is likely database content
+                        return true;
+                    }
+                }
+
+                // Check for data attributes indicating collections
+                if ($parent->hasAttribute('data-items') ||
+                    $parent->hasAttribute('data-collection') ||
+                    $parent->hasAttribute('data-results') ||
+                    $parent->hasAttribute('data-posts') ||
+                    $parent->hasAttribute('data-products')) {
                     return true;
+                }
+
+                // Check if parent is a common list container
+                $parentTag = strtolower($parent->tagName);
+                if (in_array($parentTag, ['tbody', 'ul', 'ol']) &&
+                    $parent->childNodes->length > 3) {
+                    // Multiple similar siblings likely means loop-generated content
+                    $siblings = 0;
+                    $currentTag = strtolower($element->tagName);
+                    foreach ($parent->childNodes as $child) {
+                        if ($child->nodeType === XML_ELEMENT_NODE &&
+                            strtolower($child->tagName) === $currentTag) {
+                            $siblings++;
+                        }
+                    }
+                    if ($siblings > 3) {
+                        return true;
+                    }
                 }
             }
             $parent = $parent->parentNode;
             $depth++;
+        }
+
+        // Check for AJAX/API endpoint indicators
+        if ($element->hasAttribute('data-url') ||
+            $element->hasAttribute('data-endpoint') ||
+            $element->hasAttribute('data-api') ||
+            $element->hasAttribute('data-source')) {
+            return true;
+        }
+
+        // Check for pagination elements nearby (indicates list views)
+        $xpath = new DOMXPath($element->ownerDocument);
+        $pagination = $xpath->query(".//*[contains(@class, 'pagination') or contains(@class, 'pager')]",
+                                   $element->parentNode);
+        if ($pagination->length > 0) {
+            return true;
+        }
+
+        // Check for templating engine markers that might have been rendered
+        // Look for consistent patterns that indicate template loops
+        if ($element->parentNode && $element->parentNode->childNodes->length > 1) {
+            $firstChild = null;
+            $hasIdenticalStructure = true;
+            $structureCount = 0;
+
+            foreach ($element->parentNode->childNodes as $sibling) {
+                if ($sibling->nodeType === XML_ELEMENT_NODE) {
+                    if (!$firstChild) {
+                        $firstChild = $sibling;
+                    } else if ($sibling->tagName === $firstChild->tagName) {
+                        $structureCount++;
+                    }
+                }
+            }
+
+            // If there are multiple elements with same tag name, likely a loop
+            if ($structureCount > 2) {
+                return true;
+            }
         }
 
         return false;
@@ -374,6 +556,167 @@ class InjectEditableMarkers
         }
 
         return false;
+    }
+
+    /**
+     * Check if HTML needs CMS ID injection
+     */
+    protected function needsCmsIdInjection($html)
+    {
+        // Check if there are img or <a> tags without data-cms-id
+        if (preg_match('/<img(?![^>]*data-cms-id)[^>]*>/i', $html)) {
+            return true;
+        }
+
+        if (preg_match('/<a(?![^>]*data-cms-id)[^>]*>/i', $html)) {
+            // Only for simple links, not complex ones
+            if (preg_match('/<a(?![^>]*data-cms-id)([^>]*)>(?!.*<[^>]+>.*<\/a>)/i', $html)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Inject permanent CMS IDs into HTML elements
+     */
+    protected function injectPermanentCmsIds($html)
+    {
+        // Skip if this looks like a Blade template with loops
+        if (preg_match('/@(foreach|forelse|for|while)/', $html)) {
+            return $html;
+        }
+
+        // Track if we made changes
+        $changesMade = false;
+
+        // Inject IDs for images
+        $html = preg_replace_callback(
+            '/<img(?![^>]*data-cms-id)([^>]*)>/i',
+            function ($matches) use (&$changesMade) {
+                $imgTag = $matches[0];
+                $attributes = $matches[1];
+
+                // Skip if it has Blade syntax
+                if (strpos($imgTag, '{{') !== false || strpos($imgTag, '{!!') !== false) {
+                    return $imgTag;
+                }
+
+                // Skip if marked as database component
+                if (strpos($imgTag, 'data-cms-component') !== false) {
+                    return $imgTag;
+                }
+
+                // Extract src for ID generation
+                $src = '';
+                if (preg_match('/src=["\']([^"\']+)["\']/', $imgTag, $srcMatch)) {
+                    $src = $srcMatch[1];
+                }
+
+                // Generate stable ID
+                $filename = basename(parse_url($src, PHP_URL_PATH));
+                $filename = pathinfo($filename, PATHINFO_FILENAME);
+                $cmsId = 'img-' . substr(md5($filename . $src), 0, 16);
+
+                $changesMade = true;
+
+                // Insert data-cms-id
+                return '<img data-cms-id="' . $cmsId . '"' . $attributes . '>';
+            },
+            $html
+        );
+
+        // Inject IDs for simple links (avoid complex nested structures)
+        $html = preg_replace_callback(
+            '/<a(?![^>]*data-cms-id)([^>]*)>((?:[^<]|<(?!\/a>))*?)<\/a>/i',
+            function ($matches) use (&$changesMade) {
+                $fullTag = $matches[0];
+                $attributes = $matches[1];
+                $linkContent = $matches[2];
+
+                // Skip if it has Blade syntax
+                if (strpos($fullTag, '{{') !== false || strpos($fullTag, '{!!') !== false) {
+                    return $fullTag;
+                }
+
+                // Skip if marked as database component
+                if (strpos($fullTag, 'data-cms-component') !== false) {
+                    return $fullTag;
+                }
+
+                // Skip if contains complex HTML (multiple nested tags)
+                $tagCount = substr_count($linkContent, '<');
+                if ($tagCount > 2) {
+                    return $fullTag;
+                }
+
+                // Extract href for ID generation
+                $href = '';
+                if (preg_match('/href=["\']([^"\']+)["\']/', $attributes, $hrefMatch)) {
+                    $href = $hrefMatch[1];
+                }
+
+                // Generate stable ID
+                $text = strip_tags($linkContent);
+                $text = substr(trim($text), 0, 20);
+                $cmsId = 'link-' . substr(md5($href . $text), 0, 16);
+
+                $changesMade = true;
+
+                // Insert data-cms-id
+                return '<a data-cms-id="' . $cmsId . '"' . $attributes . '>' . $linkContent . '</a>';
+            },
+            $html
+        );
+
+        // If we made changes, update the source file
+        if ($changesMade) {
+            $this->updateSourceFileWithIds($html);
+        }
+
+        return $html;
+    }
+
+    /**
+     * Update the source Blade file with injected IDs
+     */
+    protected function updateSourceFileWithIds($html)
+    {
+        // Get the current view file being rendered
+        $viewPath = $this->getCurrentViewPath();
+
+        if (!$viewPath || !file_exists($viewPath)) {
+            return;
+        }
+
+        // Read the original Blade file
+        $bladeContent = file_get_contents($viewPath);
+
+        // Only update if the file doesn't already have CMS IDs
+        if (strpos($bladeContent, 'data-cms-id') !== false) {
+            return;
+        }
+
+        // Extract just the IDs we added and apply them to the Blade file
+        // This is complex because we need to preserve Blade syntax
+        // For now, we'll log this for manual processing
+        \Log::info('CMS IDs need to be added to: ' . $viewPath);
+    }
+
+    /**
+     * Get the current view path being rendered
+     */
+    protected function getCurrentViewPath()
+    {
+        // Try to get the current view from Laravel's view factory
+        try {
+            $view = app('view')->getFinder()->find(app('view')->shared('__name', ''));
+            return $view;
+        } catch (\Exception $e) {
+            // Could not determine current view
+            return null;
+        }
     }
 
     protected function getEditableAssets()
@@ -599,33 +942,61 @@ class InjectEditableMarkers
     /* Database component styles */
     body.cms-edit-mode [data-cms-component="true"] {
         position: relative;
-        outline: 2px dashed #ff6b6b;
+        outline: 2px dashed #ffa500;
         outline-offset: 4px;
-        background-color: rgba(255, 107, 107, 0.05);
+        background-color: rgba(255, 165, 0, 0.03);
         cursor: not-allowed;
+        opacity: 0.9;
+    }
+
+    body.cms-edit-mode [data-cms-component="true"]:hover {
+        background-color: rgba(255, 165, 0, 0.08);
+        opacity: 1;
     }
 
     body.cms-edit-mode [data-cms-component="true"]::after {
         content: attr(data-cms-message);
         position: absolute;
-        top: -28px;
+        top: -32px;
         left: 0;
-        background: linear-gradient(90deg, #ff6b6b, #ff8787);
+        background: linear-gradient(135deg, #ff9500, #ffb347);
         color: white;
         font-size: 11px;
-        padding: 3px 8px;
-        border-radius: 3px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 4px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         opacity: 0;
-        transition: opacity 0.2s;
+        transition: all 0.3s ease;
         pointer-events: none;
         z-index: 10001;
         white-space: nowrap;
-        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+        box-shadow: 0 3px 12px rgba(255, 149, 0, 0.4);
+        transform: translateY(2px);
     }
 
     body.cms-edit-mode [data-cms-component="true"]:hover::after {
         opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Database icon indicator */
+    body.cms-edit-mode [data-cms-component="true"]::before {
+        content: '🔒';
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        background: #ff9500;
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        z-index: 10000;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
 </style>
 
@@ -655,6 +1026,23 @@ class InjectEditableMarkers
         // Initialize editable elements
         function initializeEditableElements() {
             const editables = document.querySelectorAll('[data-cms-editable]');
+            const components = document.querySelectorAll('[data-cms-component]');
+
+            // Handle database components - add visual indicators
+            components.forEach(component => {
+                // Remove any click handlers to prevent editing
+                component.style.pointerEvents = 'none';
+                component.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Show a toast message
+                    const message = component.getAttribute('data-cms-message') || 'Database content cannot be edited directly';
+                    if (window.CMS && window.CMS.showToast) {
+                        window.CMS.showToast(message, 'warning');
+                    }
+                }, true);
+            });
 
             editables.forEach(element => {
                 const type = element.getAttribute('data-cms-type');
