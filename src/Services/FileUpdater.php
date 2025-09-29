@@ -261,43 +261,80 @@ class FileUpdater
         if (is_array($newContent) && isset($newContent['type']) && $newContent['type'] === 'image') {
             // For images, we need to find and replace the src attribute
             if (isset($newContent['src'])) {
-                // Find the image element by looking for common patterns
-                $patterns = [
-                    // Look for img tags with asset() helper
-                    '/(<img[^>]*src=["\'])([^"\']+)(["\'][^>]*>)/',
-                    // Look for img tags with URL
-                    '/(<img[^>]*src=["\'])(https?:\/\/[^"\']+)(["\'][^>]*>)/',
-                ];
+                // Use original content to find the specific image
+                if ($originalContent && !empty($originalContent)) {
+                    // Find the img tag that contains our original content
+                    // Match img tags and check if they contain our original src
+                    preg_match_all('/<img[^>]*>/i', $content, $imgMatches, PREG_OFFSET_CAPTURE);
 
-                foreach ($patterns as $pattern) {
-                    if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
-                        // Check if this is near our element based on context
-                        $before = $matches[1][0];
-                        $oldSrc = $matches[2][0];
-                        $after = $matches[3][0];
+                    foreach ($imgMatches[0] as $imgMatch) {
+                        $imgTag = $imgMatch[0];
+                        $imgPos = $imgMatch[1];
 
-                        // Replace with new src
-                        $replacement = $before . $newContent['src'] . $after;
-                        $content = substr_replace($content, $replacement, $matches[0][1], strlen($matches[0][0]));
+                        // Check if this img tag contains our original src hint
+                        if (strpos($imgTag, $originalContent) !== false ||
+                            strpos($imgTag, htmlspecialchars($originalContent)) !== false) {
 
-                        $this->logger->info('Updated image src in Blade file', [
-                            'element_id' => $elementId,
-                            'old_src' => $oldSrc,
-                            'new_src' => $newContent['src']
-                        ]);
-
-                        // Update alt if provided
-                        if (isset($newContent['alt'])) {
-                            $content = preg_replace(
-                                '/(alt=["\'])[^"\']*(["\'])/',
-                                '${1}' . $newContent['alt'] . '${2}',
-                                $content,
-                                1
+                            // This is our target image - update its src
+                            $newImgTag = preg_replace(
+                                '/src=["\'][^"\']*["\']/',
+                                'src="' . $newContent['src'] . '"',
+                                $imgTag
                             );
-                        }
 
-                        return $content;
+                            // Update alt if provided
+                            if (isset($newContent['alt'])) {
+                                $newImgTag = preg_replace(
+                                    '/alt=["\'][^"\']*["\']/',
+                                    'alt="' . $newContent['alt'] . '"',
+                                    $newImgTag
+                                );
+                            }
+
+                            // Replace in content
+                            $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
+
+                            $this->logger->info('Updated specific image in Blade file', [
+                                'element_id' => $elementId,
+                                'original_hint' => substr($originalContent, 0, 50),
+                                'new_src' => $newContent['src']
+                            ]);
+
+                            return $content;
+                        }
                     }
+                }
+
+                // Fallback: Find any img tag (less precise)
+                $pattern = '/<img[^>]*src=["\'][^"\']*["\'][^>]*>/i';
+                if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                    $imgTag = $matches[0][0];
+                    $imgPos = $matches[0][1];
+
+                    // Update src
+                    $newImgTag = preg_replace(
+                        '/src=["\'][^"\']*["\']/',
+                        'src="' . $newContent['src'] . '"',
+                        $imgTag
+                    );
+
+                    // Update alt if provided
+                    if (isset($newContent['alt'])) {
+                        $newImgTag = preg_replace(
+                            '/alt=["\'][^"\']*["\']/',
+                            'alt="' . $newContent['alt'] . '"',
+                            $newImgTag
+                        );
+                    }
+
+                    $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
+
+                    $this->logger->info('Updated first image in Blade file (fallback)', [
+                        'element_id' => $elementId,
+                        'new_src' => $newContent['src']
+                    ]);
+
+                    return $content;
                 }
             }
 

@@ -362,15 +362,15 @@
             </div>
 
             <div class="cms-tab-content" data-tab="library" style="display: none;">
-                <button class="cms-btn cms-btn-primary" onclick="window.openModal('assets'); window.CMS.selectingImageForEditor = true;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                        <polyline points="21 15 16 10 5 21"></polyline>
-                    </svg>
-                    Open Media Library
-                </button>
-                <p style="margin-top: 10px; color: #999; font-size: 13px;">Browse and select from previously uploaded images</p>
+                <div class="cms-inline-media-library">
+                    <div class="cms-media-library-toolbar">
+                        <input type="text" class="cms-input" placeholder="Search media..." id="cms-inline-media-search" style="width: 200px;">
+                        <button class="cms-btn cms-btn-sm" id="cms-inline-upload">Upload New</button>
+                    </div>
+                    <div class="cms-inline-media-grid" id="cms-inline-media-grid">
+                        <div class="cms-media-loading">Loading media...</div>
+                    </div>
+                </div>
             </div>
 
             <div class="cms-setting-group cms-image-actions">
@@ -1150,6 +1150,7 @@
         cursor: pointer;
         border: 2px solid transparent;
         transition: all 0.2s;
+        background: #2a2a2a;
     }
 
     .cms-media-item:hover {
@@ -1189,8 +1190,10 @@
         padding: 8px;
         color: #fff;
         font-size: 11px;
+        background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.8) 100%);
         transform: translateY(100%);
         transition: transform 0.2s;
+        z-index: 2;
     }
 
     .cms-media-item:hover .cms-media-item-info {
@@ -1243,6 +1246,66 @@
     .cms-btn-sm {
         padding: 4px 8px;
         font-size: 12px;
+    }
+
+    /* Inline Media Library Styles */
+    .cms-inline-media-library {
+        height: 400px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cms-media-library-toolbar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .cms-inline-media-grid {
+        flex: 1;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+        padding: 10px;
+        background: #2a2a2a;
+        border-radius: 4px;
+    }
+
+    .cms-inline-media-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 4px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.2s;
+        background: #1e1e1e;
+    }
+
+    .cms-inline-media-item:hover {
+        border-color: #007bff;
+        transform: scale(1.05);
+    }
+
+    .cms-inline-media-item.selected {
+        border-color: #00b341;
+        box-shadow: 0 0 0 3px rgba(0, 179, 65, 0.3);
+    }
+
+    .cms-inline-media-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .cms-media-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: #999;
+        font-size: 14px;
     }
 </style>
 
@@ -1523,7 +1586,7 @@
                          data-path="${page.path}"
                          data-template="${page.is_template}">
                         <div>
-                            <div class="cms-page-item-title">${page.title}</div>
+                            <div class="cms-page-item-title">${page.title || 'Untitled'}</div>
                             <div class="cms-page-item-path">${page.path}</div>
                         </div>
                         ${page.is_template ? '<span>Template</span>' : ''}
@@ -1891,6 +1954,9 @@
             function handleOpenImageEditor(e) {
                 const detail = e.detail;
 
+                // Store the element reference
+                window.CMS.currentImageElement = detail.element;
+
                 // Fill the form
                 document.getElementById('cms-image-alt').value = detail.alt || '';
                 document.getElementById('cms-image-title').value = detail.title || '';
@@ -1903,8 +1969,123 @@
                     document.getElementById('cms-image-dropzone').style.display = 'none';
                 }
 
+                // Setup inline media library
+                setupInlineMediaLibrary();
+
                 // Open the modal
                 openModal('image-editor');
+            }
+
+            // Setup inline media library
+            function setupInlineMediaLibrary() {
+                const grid = document.getElementById('cms-inline-media-grid');
+                if (!grid) return;
+
+                // Only setup once
+                if (grid.dataset.initialized) return;
+                grid.dataset.initialized = 'true';
+
+                // Load media when library tab is clicked
+                document.querySelector('.cms-tab-btn[data-tab="library"]')?.addEventListener('click', function() {
+                    loadInlineMedia();
+                });
+
+                // Search functionality
+                let searchTimeout;
+                document.getElementById('cms-inline-media-search')?.addEventListener('input', function(e) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        filterInlineMedia(e.target.value);
+                    }, 300);
+                });
+
+                // Upload button
+                document.getElementById('cms-inline-upload')?.addEventListener('click', function() {
+                    document.getElementById('cms-image-upload')?.click();
+                });
+            }
+
+            // Load inline media
+            function loadInlineMedia() {
+                const grid = document.getElementById('cms-inline-media-grid');
+                if (!grid) return;
+
+                grid.innerHTML = '<div class="cms-media-loading">Loading media...</div>';
+
+                fetch(apiBaseUrl + '/media?include_root=true', {
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && Array.isArray(data.media)) {
+                            renderInlineMedia(data.media);
+                        } else {
+                            grid.innerHTML = '<div class="cms-media-loading">No media found</div>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Failed to load media:', error);
+                        grid.innerHTML = '<div class="cms-media-loading">Failed to load media</div>';
+                    });
+            }
+
+            // Render inline media
+            function renderInlineMedia(items) {
+                const grid = document.getElementById('cms-inline-media-grid');
+                if (!grid) return;
+
+                if (items.length === 0) {
+                    grid.innerHTML = '<div class="cms-media-loading">No media found</div>';
+                    return;
+                }
+
+                grid.innerHTML = items.map(item => `
+                    <div class="cms-inline-media-item" data-url="${item.url}" data-id="${item.id}">
+                        <img src="${item.url}" alt="${item.filename}">
+                    </div>
+                `).join('');
+
+                // Add click handlers
+                grid.querySelectorAll('.cms-inline-media-item').forEach(item => {
+                    item.addEventListener('click', function() {
+                        // Remove other selections
+                        grid.querySelectorAll('.cms-inline-media-item').forEach(i => {
+                            i.classList.remove('selected');
+                        });
+
+                        // Select this item
+                        this.classList.add('selected');
+
+                        // Update preview
+                        const url = this.dataset.url;
+                        document.getElementById('cms-preview-img').src = url;
+                        document.getElementById('cms-image-dropzone').style.display = 'none';
+                        document.getElementById('cms-image-preview').style.display = 'block';
+                        document.getElementById('cms-save-image').disabled = false;
+
+                        // Store selected URL
+                        window.CMS.selectedLibraryImage = url;
+                    });
+                });
+            }
+
+            // Filter inline media
+            function filterInlineMedia(query) {
+                const items = document.querySelectorAll('.cms-inline-media-item');
+                const lowerQuery = query.toLowerCase();
+
+                items.forEach(item => {
+                    const img = item.querySelector('img');
+                    const alt = img ? img.alt.toLowerCase() : '';
+
+                    if (alt.includes(lowerQuery)) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
             }
 
             // Setup image dropzone
@@ -1921,22 +2102,29 @@
                 let selectedFile = null;
 
                 // Tab switching
-                document.querySelectorAll('.cms-tab-btn').forEach(btn => {
+                document.querySelectorAll('.cms-image-editor-tabs .cms-tab-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const tab = this.dataset.tab;
 
                         // Update active tab button
-                        document.querySelectorAll('.cms-tab-btn').forEach(b => b.classList.remove('active'));
+                        document.querySelectorAll('.cms-image-editor-tabs .cms-tab-btn').forEach(b => b.classList.remove('active'));
                         this.classList.add('active');
 
-                        // Show/hide tab content
-                        document.querySelectorAll('.cms-tab-content').forEach(content => {
-                            if (content.dataset.tab === tab) {
-                                content.style.display = 'block';
-                            } else {
-                                content.style.display = 'none';
-                            }
-                        });
+                        // Show/hide tab content in image editor
+                        const modal = this.closest('.cms-modal');
+                        if (modal) {
+                            modal.querySelectorAll('.cms-tab-content').forEach(content => {
+                                if (content.dataset.tab === tab) {
+                                    content.style.display = 'block';
+                                    // Load media when library tab is shown
+                                    if (tab === 'library') {
+                                        loadInlineMedia();
+                                    }
+                                } else {
+                                    content.style.display = 'none';
+                                }
+                            });
+                        }
                     });
                 });
 
@@ -2040,8 +2228,10 @@
 
                 // Create folder button
                 document.querySelector('.cms-btn-create-folder')?.addEventListener('click', function() {
-                    openModal('create-folder');
+                    // Load folder options first
                     loadFolderOptions();
+                    // Open the create folder modal
+                    openModal('create-folder');
                 });
 
                 // Create folder submit
@@ -2407,9 +2597,13 @@
                         detail: {
                             id: element.getAttribute('data-cms-id'),
                             type: 'image',
-                            src: selectedLibraryUrl,
-                            alt: newAlt,
-                            title: newTitle,
+                            content: {
+                                type: 'image',
+                                src: selectedLibraryUrl,
+                                alt: newAlt,
+                                title: newTitle
+                            },
+                            originalContent: element.getAttribute('src'),
                             element: element
                         }
                     });
@@ -2422,8 +2616,12 @@
                         detail: {
                             id: element.getAttribute('data-cms-id'),
                             type: 'image',
-                            alt: newAlt,
-                            title: newTitle,
+                            content: {
+                                type: 'image',
+                                alt: newAlt,
+                                title: newTitle
+                            },
+                            originalContent: element.getAttribute('src'),
                             element: element
                         }
                     });
@@ -2459,9 +2657,13 @@
                             detail: {
                                 id: element.getAttribute('data-cms-id'),
                                 type: 'image',
-                                src: data.url,
-                                alt: document.getElementById('cms-image-alt').value,
-                                title: document.getElementById('cms-image-title').value,
+                                content: {
+                                    type: 'image',
+                                    src: data.url,
+                                    alt: document.getElementById('cms-image-alt').value,
+                                    title: document.getElementById('cms-image-title').value
+                                },
+                                originalContent: element.getAttribute('src'),
                                 element: element
                             }
                         });
