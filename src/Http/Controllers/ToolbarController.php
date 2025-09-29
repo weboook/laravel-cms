@@ -16,10 +16,57 @@ class ToolbarController extends Controller
      */
     public function getPages()
     {
-        $routes = collect(Route::getRoutes())->filter(function ($route) {
+        // Get excluded routes and paths from configuration AND saved settings
+        $excludedRoutes = config('cms.auth.excluded_routes', []);
+        $excludedPaths = config('cms.auth.excluded_paths', []);
+
+        // Also get exclusions from saved settings file
+        $settingsFile = storage_path('cms/settings.json');
+        if (File::exists($settingsFile)) {
+            $settings = json_decode(File::get($settingsFile), true);
+            if (isset($settings['exclusions'])) {
+                // Merge prefixes as paths (e.g., "admin" becomes "admin/*")
+                if (!empty($settings['exclusions']['prefixes'])) {
+                    foreach ($settings['exclusions']['prefixes'] as $prefix) {
+                        $excludedPaths[] = $prefix . '/*';
+                    }
+                }
+                // Merge route patterns
+                if (!empty($settings['exclusions']['routes'])) {
+                    $excludedPaths = array_merge($excludedPaths, $settings['exclusions']['routes']);
+                }
+                // Merge route names
+                if (!empty($settings['exclusions']['names'])) {
+                    $excludedRoutes = array_merge($excludedRoutes, $settings['exclusions']['names']);
+                }
+            }
+        }
+
+        // Remove duplicates
+        $excludedRoutes = array_unique($excludedRoutes);
+        $excludedPaths = array_unique($excludedPaths);
+
+        $routes = collect(Route::getRoutes())->filter(function ($route) use ($excludedRoutes, $excludedPaths) {
             // Filter out vendor, api, and cms routes
             $uri = $route->uri();
             $methods = $route->methods();
+            $routeName = $route->getName();
+
+            // Check if route name is excluded
+            if ($routeName) {
+                foreach ($excludedRoutes as $pattern) {
+                    if ($this->matchesPattern($routeName, $pattern)) {
+                        return false;
+                    }
+                }
+            }
+
+            // Check if path is excluded
+            foreach ($excludedPaths as $pattern) {
+                if ($this->matchesPathPattern($uri, $pattern)) {
+                    return false;
+                }
+            }
 
             return in_array('GET', $methods)
                 && !str_starts_with($uri, 'api/')
@@ -27,7 +74,11 @@ class ToolbarController extends Controller
                 && !str_starts_with($uri, '_')
                 && !str_contains($uri, '{') // Exclude routes with parameters for now
                 && $uri !== 'sanctum/csrf-cookie'
-                && $uri !== 'livewire/message';
+                && $uri !== 'livewire/message'
+                && !str_starts_with($uri, 'livewire/')
+                && !str_starts_with($uri, 'log-viewer/')
+                && !str_starts_with($uri, 'telescope/')
+                && !str_starts_with($uri, 'horizon/');
         })->map(function ($route) {
             $uri = $route->uri();
             return [
@@ -41,9 +92,27 @@ class ToolbarController extends Controller
         })->values();
 
         // Check for template routes (routes with parameters)
-        $templateRoutes = collect(Route::getRoutes())->filter(function ($route) {
+        $templateRoutes = collect(Route::getRoutes())->filter(function ($route) use ($excludedRoutes, $excludedPaths) {
             $uri = $route->uri();
             $methods = $route->methods();
+            $routeName = $route->getName();
+
+            // Check if route name is excluded
+            if ($routeName) {
+                foreach ($excludedRoutes as $pattern) {
+                    if ($this->matchesPattern($routeName, $pattern)) {
+                        return false;
+                    }
+                }
+            }
+
+            // Check if path is excluded (check base path without parameters)
+            $basePath = preg_replace('/\{[^}]+\}/', '*', $uri);
+            foreach ($excludedPaths as $pattern) {
+                if ($this->matchesPathPattern($basePath, $pattern)) {
+                    return false;
+                }
+            }
 
             return in_array('GET', $methods)
                 && !str_starts_with($uri, 'api/')
@@ -51,7 +120,10 @@ class ToolbarController extends Controller
                 && !str_starts_with($uri, '_')
                 && str_contains($uri, '{')
                 && !str_contains($uri, 'sanctum')
-                && !str_contains($uri, 'livewire');
+                && !str_contains($uri, 'livewire')
+                && !str_starts_with($uri, 'log-viewer/')
+                && !str_starts_with($uri, 'telescope/')
+                && !str_starts_with($uri, 'horizon/');
         })->map(function ($route) {
             $uri = $route->uri();
             preg_match_all('/\{([^}]+)\}/', $uri, $matches);
@@ -248,5 +320,41 @@ class ToolbarController extends Controller
         ];
 
         return $names[$code] ?? ucfirst($code);
+    }
+
+    /**
+     * Check if a route name matches a pattern (supports wildcards)
+     */
+    private function matchesPattern($routeName, $pattern)
+    {
+        // Convert wildcard pattern to regex
+        $pattern = str_replace('.', '\.', $pattern);
+        $pattern = str_replace('*', '.*', $pattern);
+        $pattern = '/^' . $pattern . '$/';
+
+        return preg_match($pattern, $routeName);
+    }
+
+    /**
+     * Check if a path matches a pattern (supports wildcards)
+     */
+    private function matchesPathPattern($path, $pattern)
+    {
+        // Remove leading slash from both for comparison
+        $path = ltrim($path, '/');
+        $pattern = ltrim($pattern, '/');
+
+        // Handle wildcard patterns
+        if (str_contains($pattern, '*')) {
+            // Convert wildcard pattern to regex
+            $pattern = str_replace('/', '\/', $pattern);
+            $pattern = str_replace('*', '.*', $pattern);
+            $pattern = '/^' . $pattern . '$/';
+
+            return preg_match($pattern, $path);
+        }
+
+        // Exact match or prefix match
+        return $path === $pattern || str_starts_with($path, $pattern . '/');
     }
 }

@@ -261,7 +261,48 @@ class FileUpdater
         if (is_array($newContent) && isset($newContent['type']) && $newContent['type'] === 'image') {
             // For images, we need to find and replace the src attribute
             if (isset($newContent['src'])) {
-                // Use original content to find the specific image
+                // First, try to find by data-cms-id attribute (most reliable)
+                $pattern = '/<img[^>]*data-cms-id=["\']' . preg_quote($elementId, '/') . '["\'][^>]*>/i';
+                if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                    $imgTag = $matches[0][0];
+                    $imgPos = $matches[0][1];
+
+                    // Update src
+                    $newImgTag = preg_replace(
+                        '/src=["\'][^"\']*["\']/',
+                        'src="' . $newContent['src'] . '"',
+                        $imgTag
+                    );
+
+                    // Update alt if provided
+                    if (isset($newContent['alt'])) {
+                        if (preg_match('/alt=["\'][^"\']*["\']/', $newImgTag)) {
+                            $newImgTag = preg_replace(
+                                '/alt=["\'][^"\']*["\']/',
+                                'alt="' . $newContent['alt'] . '"',
+                                $newImgTag
+                            );
+                        } else {
+                            // Add alt attribute if it doesn't exist
+                            $newImgTag = preg_replace(
+                                '/<img/',
+                                '<img alt="' . $newContent['alt'] . '"',
+                                $newImgTag
+                            );
+                        }
+                    }
+
+                    $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
+
+                    $this->logger->info('Updated image by element ID in Blade file', [
+                        'element_id' => $elementId,
+                        'new_src' => $newContent['src']
+                    ]);
+
+                    return $content;
+                }
+
+                // If no data-cms-id found, try to use original content to find the specific image
                 if ($originalContent && !empty($originalContent)) {
                     // Find all img tags with their positions
                     preg_match_all('/<img[^>]*>/i', $content, $imgMatches, PREG_OFFSET_CAPTURE);
@@ -339,37 +380,17 @@ class FileUpdater
                     }
                 }
 
-                // Fallback: Find any img tag (less precise)
-                $pattern = '/<img[^>]*src=["\'][^"\']*["\'][^>]*>/i';
-                if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
-                    $imgTag = $matches[0][0];
-                    $imgPos = $matches[0][1];
+                // NO DANGEROUS FALLBACK - If we can't find the specific image, we should fail safely
+                // The previous fallback would update the WRONG image which is destructive behavior
 
-                    // Update src
-                    $newImgTag = preg_replace(
-                        '/src=["\'][^"\']*["\']/',
-                        'src="' . $newContent['src'] . '"',
-                        $imgTag
-                    );
+                $this->logger->error('Could not find specific image to update in Blade content', [
+                    'element_id' => $elementId,
+                    'original_content_hint' => $originalContent ? substr($originalContent, 0, 50) : 'none',
+                    'message' => 'Image update aborted to prevent updating wrong image'
+                ]);
 
-                    // Update alt if provided
-                    if (isset($newContent['alt'])) {
-                        $newImgTag = preg_replace(
-                            '/alt=["\'][^"\']*["\']/',
-                            'alt="' . $newContent['alt'] . '"',
-                            $newImgTag
-                        );
-                    }
-
-                    $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
-
-                    $this->logger->info('Updated first image in Blade file (fallback)', [
-                        'element_id' => $elementId,
-                        'new_src' => $newContent['src']
-                    ]);
-
-                    return $content;
-                }
+                // Return content unchanged - safer to do nothing than update wrong element
+                return $content;
             }
 
             $this->logger->warning('Could not find image to update in Blade content', [
