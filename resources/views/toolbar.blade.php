@@ -1831,10 +1831,21 @@
 
             // Close Modal
             function closeModal() {
-                modalContainer.style.display = 'none';
+                // Ensure modal container exists
+                if (modalContainer) {
+                    modalContainer.style.display = 'none';
+                }
+
+                // Hide all modals
                 document.querySelectorAll('.cms-modal').forEach(m => {
                     m.style.display = 'none';
                 });
+
+                // Clear any references
+                if (window.CMS) {
+                    window.CMS.currentLinkElement = null;
+                    window.CMS.currentImageElement = null;
+                }
             }
 
             // Load Settings
@@ -2035,39 +2046,56 @@
 
             // Save link changes
             function saveLinkChanges() {
-                const element = window.CMS.currentLinkElement;
-                if (!element) return;
-
-                const newText = document.getElementById('cms-link-text').value;
-                const newHref = document.getElementById('cms-link-href').value;
-                const newTab = document.getElementById('cms-link-new-tab').checked;
-
-                // Update the element
-                if (newText) element.textContent = newText;
-                if (newHref) element.setAttribute('href', newHref);
-
-                if (newTab) {
-                    element.setAttribute('target', '_blank');
-                    element.setAttribute('rel', 'noopener noreferrer');
-                } else {
-                    element.removeAttribute('target');
-                    element.removeAttribute('rel');
-                }
-
-                // Trigger save event
-                const event = new CustomEvent('cms:contentChanged', {
-                    detail: {
-                        id: element.getAttribute('data-cms-id'),
-                        type: 'link',
-                        text: newText,
-                        href: newHref,
-                        target: newTab ? '_blank' : '',
-                        element: element
+                try {
+                    const element = window.CMS.currentLinkElement;
+                    if (!element) {
+                        console.error('No link element to save');
+                        closeModal();
+                        return;
                     }
-                });
-                document.dispatchEvent(event);
 
-                closeModal();
+                    const newText = document.getElementById('cms-link-text').value;
+                    const newHref = document.getElementById('cms-link-href').value;
+                    const newTab = document.getElementById('cms-link-new-tab').checked;
+
+                    // Update the element
+                    if (newText) element.textContent = newText;
+                    if (newHref) element.setAttribute('href', newHref);
+
+                    if (newTab) {
+                        element.setAttribute('target', '_blank');
+                        element.setAttribute('rel', 'noopener noreferrer');
+                    } else {
+                        element.removeAttribute('target');
+                        element.removeAttribute('rel');
+                    }
+
+                    // Trigger save event
+                    const event = new CustomEvent('cms:contentChanged', {
+                        detail: {
+                            id: element.getAttribute('data-cms-id'),
+                            type: 'link',
+                            text: newText,
+                            href: newHref,
+                            target: newTab ? '_blank' : '',
+                            element: element
+                        }
+                    });
+                    document.dispatchEvent(event);
+
+                    // Show success toast
+                    showToast('Link updated successfully');
+
+                    // Clear the current element reference
+                    window.CMS.currentLinkElement = null;
+
+                    // Close the modal
+                    closeModal();
+                } catch (error) {
+                    console.error('Error saving link changes:', error);
+                    showToast('Failed to save link changes', 'error');
+                    closeModal();
+                }
             }
 
             // Handle open image editor
