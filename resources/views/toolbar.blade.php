@@ -166,6 +166,36 @@
             </div>
         </div>
     </div>
+
+    {{-- Link Editor Modal --}}
+    <div class="cms-modal cms-modal-link-editor" data-modal="link-editor" style="display: none;">
+        <div class="cms-modal-header">
+            <h2>Edit Link</h2>
+            <button class="cms-modal-close">&times;</button>
+        </div>
+        <div class="cms-modal-body">
+            <div class="cms-link-editor-form">
+                <div class="cms-setting-group">
+                    <label class="cms-label">Link Text</label>
+                    <input type="text" class="cms-input" id="cms-link-text" placeholder="Button or link text...">
+                </div>
+                <div class="cms-setting-group">
+                    <label class="cms-label">URL (href)</label>
+                    <input type="text" class="cms-input" id="cms-link-href" placeholder="https://example.com or /page">
+                </div>
+                <div class="cms-setting-group">
+                    <label class="cms-label">
+                        <input type="checkbox" id="cms-link-new-tab">
+                        <span>Open in new tab</span>
+                    </label>
+                </div>
+                <div class="cms-setting-group">
+                    <button class="cms-btn cms-btn-primary" id="cms-save-link">Save Link</button>
+                    <button class="cms-btn" id="cms-cancel-link">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -613,11 +643,19 @@
 
                 // Modal close buttons
                 document.querySelectorAll('.cms-modal-close').forEach(btn => {
-                    btn.addEventListener('click', closeModal);
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeModal();
+                    });
                 });
 
                 // Backdrop click
-                document.querySelector('.cms-modal-backdrop')?.addEventListener('click', closeModal);
+                document.querySelector('.cms-modal-backdrop')?.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeModal();
+                });
 
                 // Save button
                 toolbar.querySelector('.cms-btn-save')?.addEventListener('click', function() {
@@ -630,6 +668,11 @@
 
                 // Pages search
                 document.getElementById('cms-pages-search')?.addEventListener('input', filterPages);
+
+                // Link editor handlers
+                document.addEventListener('cms:openLinkEditor', handleOpenLinkEditor);
+                document.getElementById('cms-save-link')?.addEventListener('click', saveLinkChanges);
+                document.getElementById('cms-cancel-link')?.addEventListener('click', () => closeModal());
             }
 
             // Load Languages
@@ -892,6 +935,56 @@
                 .catch(error => {
                     console.error('Failed to save settings:', error);
                 });
+            }
+
+            // Handle open link editor event
+            function handleOpenLinkEditor(e) {
+                const detail = e.detail;
+
+                // Fill the form
+                document.getElementById('cms-link-text').value = detail.text || '';
+                document.getElementById('cms-link-href').value = detail.href || '';
+                document.getElementById('cms-link-new-tab').checked = detail.newTab || false;
+
+                // Open the modal
+                openModal('link-editor');
+            }
+
+            // Save link changes
+            function saveLinkChanges() {
+                const element = window.CMS.currentLinkElement;
+                if (!element) return;
+
+                const newText = document.getElementById('cms-link-text').value;
+                const newHref = document.getElementById('cms-link-href').value;
+                const newTab = document.getElementById('cms-link-new-tab').checked;
+
+                // Update the element
+                if (newText) element.textContent = newText;
+                if (newHref) element.setAttribute('href', newHref);
+
+                if (newTab) {
+                    element.setAttribute('target', '_blank');
+                    element.setAttribute('rel', 'noopener noreferrer');
+                } else {
+                    element.removeAttribute('target');
+                    element.removeAttribute('rel');
+                }
+
+                // Trigger save event
+                const event = new CustomEvent('cms:contentChanged', {
+                    detail: {
+                        id: element.getAttribute('data-cms-id'),
+                        type: 'link',
+                        text: newText,
+                        href: newHref,
+                        target: newTab ? '_blank' : '',
+                        element: element
+                    }
+                });
+                document.dispatchEvent(event);
+
+                closeModal();
             }
 
             // Make functions available globally

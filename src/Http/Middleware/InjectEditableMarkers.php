@@ -23,7 +23,9 @@ class InjectEditableMarkers
         'li',
         'td',
         'blockquote',
-        'figcaption'
+        'figcaption',
+        'a',
+        'button'
     ];
 
     public function handle(Request $request, Closure $next)
@@ -70,8 +72,14 @@ class InjectEditableMarkers
             $elements = $this->querySelectorAll($xpath, $selector);
 
             foreach ($elements as $element) {
-                // Skip if already marked or is empty
-                if ($element->hasAttribute('data-cms-editable') || trim($element->textContent) === '') {
+                // Skip if already marked
+                if ($element->hasAttribute('data-cms-editable')) {
+                    continue;
+                }
+
+                // For links and buttons, don't skip if empty (they might have only href)
+                $tagName = strtolower($element->tagName);
+                if (!in_array($tagName, ['a', 'button']) && trim($element->textContent) === '') {
                     continue;
                 }
 
@@ -175,6 +183,10 @@ class InjectEditableMarkers
             return 'link';
         }
 
+        if ($tagName === 'button') {
+            return 'button';
+        }
+
         return 'text';
     }
 
@@ -194,14 +206,14 @@ class InjectEditableMarkers
         transition: all 0.2s ease;
     }
 
-    body.cms-edit-mode [data-cms-editable] {
+    body.cms-edit-mode [data-cms-editable]:not([data-cms-type="link"]):not([data-cms-type="button"]) {
         outline: 2px dashed transparent;
         outline-offset: 4px;
         cursor: pointer;
         min-height: 20px;
     }
 
-    body.cms-edit-mode [data-cms-editable]:hover {
+    body.cms-edit-mode [data-cms-editable]:not([data-cms-type="link"]):not([data-cms-type="button"]):hover {
         outline-color: #0066ff;
         background-color: rgba(0, 102, 255, 0.05);
     }
@@ -209,6 +221,44 @@ class InjectEditableMarkers
     body.cms-edit-mode [data-cms-editable].cms-editing {
         outline: 2px solid #0066ff;
         background-color: rgba(0, 102, 255, 0.1);
+    }
+
+    /* Link and Button specific styles */
+    body.cms-edit-mode [data-cms-type="link"],
+    body.cms-edit-mode [data-cms-type="button"] {
+        position: relative;
+    }
+
+    .cms-link-gear {
+        position: absolute;
+        top: 50%;
+        right: -30px;
+        transform: translateY(-50%);
+        width: 24px;
+        height: 24px;
+        background: #0066ff;
+        border-radius: 4px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10000;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .cms-link-gear:hover {
+        background: #0052d4;
+    }
+
+    .cms-link-gear svg {
+        width: 16px;
+        height: 16px;
+        fill: white;
+    }
+
+    body.cms-edit-mode [data-cms-type="link"]:hover .cms-link-gear,
+    body.cms-edit-mode [data-cms-type="button"]:hover .cms-link-gear {
+        display: flex;
     }
 
     body.cms-edit-mode [data-cms-editable]::before {
@@ -302,10 +352,39 @@ class InjectEditableMarkers
             const editables = document.querySelectorAll('[data-cms-editable]');
 
             editables.forEach(element => {
-                // Remove any existing listeners
-                element.removeEventListener('click', handleEditableClick);
-                // Add click listener
-                element.addEventListener('click', handleEditableClick);
+                const type = element.getAttribute('data-cms-type');
+
+                // Handle links and buttons differently
+                if (type === 'link' || type === 'button') {
+                    initializeLinkElement(element);
+                } else {
+                    // Remove any existing listeners
+                    element.removeEventListener('click', handleEditableClick);
+                    // Add click listener
+                    element.addEventListener('click', handleEditableClick);
+                }
+            });
+        }
+
+        // Initialize link elements with gear icon
+        function initializeLinkElement(element) {
+            // Remove existing gear if any
+            const existingGear = element.querySelector('.cms-link-gear');
+            if (existingGear) {
+                existingGear.remove();
+            }
+
+            // Create gear icon
+            const gear = document.createElement('div');
+            gear.className = 'cms-link-gear';
+            gear.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334zm0 5.334c-1.105 0-2-.896-2-2s.895-2 2-2 2 .896 2 2-.895 2-2 2zm7.04-2.404l1.313-.988c.185-.139.23-.386.119-.579l-1.24-2.148c-.11-.193-.359-.244-.534-.137l-1.540.617c-.449-.331-.949-.596-1.489-.784l-.234-1.644c-.038-.218-.237-.382-.456-.382h-2.478c-.219 0-.418.164-.456.382l-.234 1.644c-.540.188-1.04.453-1.489.784l-1.54-.617c-.175-.107-.424-.056-.534.137l-1.24 2.148c-.11.193-.066.44.119.579l1.313.988c-.05.261-.081.53-.081.809s.031.548.081.809l-1.313.988c-.185.139-.23.386-.119.579l1.24 2.148c.11.193.359.244.534.137l1.54-.617c.449.331.949.596 1.489.784l.234 1.644c.038.218.237.382.456.382h2.478c.219 0 .418-.164.456-.382l.234-1.644c.540-.188 1.04-.453 1.489-.784l1.54.617c.175.107.424.056.534-.137l1.24-2.148c.11-.193.066-.44-.119-.579l-1.313-.988c.05-.261.081-.53.081-.809s-.031-.548-.081-.809z"/></svg>';
+            element.appendChild(gear);
+
+            // Add click handler to gear
+            gear.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openLinkEditor(element);
             });
         }
 
@@ -326,6 +405,28 @@ class InjectEditableMarkers
 
             // Create inline editor
             createInlineEditor(element);
+        }
+
+        // Open link editor modal
+        function openLinkEditor(element) {
+            const linkText = element.textContent;
+            const linkHref = element.getAttribute('href') || '';
+            const linkTarget = element.getAttribute('target') === '_blank';
+
+            // Store reference to current element
+            window.CMS = window.CMS || {};
+            window.CMS.currentLinkElement = element;
+
+            // Dispatch event to open modal
+            const event = new CustomEvent('cms:openLinkEditor', {
+                detail: {
+                    text: linkText,
+                    href: linkHref,
+                    newTab: linkTarget,
+                    element: element
+                }
+            });
+            document.dispatchEvent(event);
         }
 
         // Create inline editor
