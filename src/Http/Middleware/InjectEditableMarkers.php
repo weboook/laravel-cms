@@ -25,7 +25,6 @@ class InjectEditableMarkers
         'blockquote',
         'figcaption',
         'a',
-        'button',
         'img'
     ];
 
@@ -52,8 +51,12 @@ class InjectEditableMarkers
 
         // Only process HTML responses with body tag
         if ($content && strpos($content, '</body>') !== false) {
-            $content = $this->injectMarkers($content);
-            $response->setContent($content);
+            // Check if CMS toolbar is actually present in the page
+            // Only inject editable markers if the toolbar exists
+            if ($this->hasCmsToolbar($content)) {
+                $content = $this->injectMarkers($content);
+                $response->setContent($content);
+            }
         }
 
         return $response;
@@ -89,6 +92,16 @@ class InjectEditableMarkers
                     continue;
                 }
 
+                // Skip dropdown elements
+                if ($this->isDropdownElement($element)) {
+                    continue;
+                }
+
+                // Skip elements in header or footer
+                if ($this->isInHeaderOrFooter($element)) {
+                    continue;
+                }
+
                 // Check if it's database content
                 if ($this->isDatabaseContent($element)) {
                     // Mark as component with appropriate message
@@ -117,9 +130,9 @@ class InjectEditableMarkers
                     continue;
                 }
 
-                // For links, buttons, and images, don't skip if empty
+                // For links and images, don't skip if empty
                 $tagName = strtolower($element->tagName);
-                if (!in_array($tagName, ['a', 'button', 'img']) && trim($element->textContent) === '') {
+                if (!in_array($tagName, ['a', 'img']) && trim($element->textContent) === '') {
                     continue;
                 }
 
@@ -226,9 +239,6 @@ class InjectEditableMarkers
             return 'link';
         }
 
-        if ($tagName === 'button') {
-            return 'button';
-        }
 
         return 'text';
     }
@@ -512,6 +522,151 @@ class InjectEditableMarkers
     }
 
     /**
+     * Check if element is a dropdown element
+     */
+    protected function isDropdownElement($element)
+    {
+        // Check if element or any parent has dropdown-related classes/attributes
+        $current = $element;
+        while ($current && $current->nodeType === XML_ELEMENT_NODE) {
+            // Check for dropdown-related classes
+            if ($current->hasAttribute('class')) {
+                $class = $current->getAttribute('class');
+                $dropdownClasses = [
+                    'dropdown', 'dropup', 'dropstart', 'dropend',
+                    'dropdown-menu', 'dropdown-item', 'dropdown-toggle',
+                    'nav-dropdown', 'menu-dropdown', 'select-dropdown',
+                    'autocomplete', 'typeahead', 'combobox',
+                    'datalist', 'select2', 'chosen'
+                ];
+
+                foreach ($dropdownClasses as $dropdownClass) {
+                    if (strpos($class, $dropdownClass) !== false) {
+                        return true;
+                    }
+                }
+            }
+
+            // Check for dropdown-related data attributes
+            if ($current->hasAttribute('data-toggle') &&
+                strpos($current->getAttribute('data-toggle'), 'dropdown') !== false) {
+                return true;
+            }
+
+            if ($current->hasAttribute('data-bs-toggle') &&
+                strpos($current->getAttribute('data-bs-toggle'), 'dropdown') !== false) {
+                return true;
+            }
+
+            // Check for role attribute indicating dropdown
+            if ($current->hasAttribute('role')) {
+                $role = $current->getAttribute('role');
+                if (in_array($role, ['menu', 'menubar', 'menuitem', 'listbox', 'option', 'combobox'])) {
+                    return true;
+                }
+            }
+
+            // Check if it's a select element or within one
+            if (strtolower($current->tagName) === 'select' ||
+                strtolower($current->tagName) === 'option' ||
+                strtolower($current->tagName) === 'optgroup') {
+                return true;
+            }
+
+            $current = $current->parentNode;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if element is within header or footer
+     */
+    protected function isInHeaderOrFooter($element)
+    {
+        // Check if element or any parent is header/footer
+        $current = $element;
+        while ($current && $current->nodeType === XML_ELEMENT_NODE) {
+            $tagName = strtolower($current->tagName);
+
+            // Check for semantic HTML5 header/footer tags
+            if (in_array($tagName, ['header', 'footer'])) {
+                return true;
+            }
+
+            // Check for common header/footer classes
+            if ($current->hasAttribute('class')) {
+                $class = strtolower($current->getAttribute('class'));
+                $headerFooterClasses = [
+                    'header', 'footer', 'site-header', 'site-footer',
+                    'page-header', 'page-footer', 'main-header', 'main-footer',
+                    'navbar', 'nav-bar', 'navigation', 'nav-menu',
+                    'topbar', 'top-bar', 'bottom-bar', 'footer-bar'
+                ];
+
+                foreach ($headerFooterClasses as $headerFooterClass) {
+                    if (strpos($class, $headerFooterClass) !== false) {
+                        return true;
+                    }
+                }
+            }
+
+            // Check for common header/footer IDs
+            if ($current->hasAttribute('id')) {
+                $id = strtolower($current->getAttribute('id'));
+                $headerFooterIds = [
+                    'header', 'footer', 'site-header', 'site-footer',
+                    'page-header', 'page-footer', 'main-header', 'main-footer',
+                    'navbar', 'navigation', 'nav', 'topbar', 'bottombar'
+                ];
+
+                foreach ($headerFooterIds as $headerFooterId) {
+                    if (strpos($id, $headerFooterId) !== false) {
+                        return true;
+                    }
+                }
+            }
+
+            // Check for role attribute indicating navigation
+            if ($current->hasAttribute('role')) {
+                $role = $current->getAttribute('role');
+                if (in_array($role, ['banner', 'navigation', 'contentinfo'])) {
+                    return true;
+                }
+            }
+
+            $current = $current->parentNode;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if CMS toolbar is present in the page content
+     */
+    protected function hasCmsToolbar($content)
+    {
+        // Check for various indicators that the CMS toolbar is loaded
+        $toolbarIndicators = [
+            'id="cms-toolbar"',           // Main toolbar element
+            'class="cms-toolbar"',        // Toolbar with class
+            'cms-toolbar-container',      // Toolbar container
+            'window.CMS =',               // CMS JavaScript object
+            'cms:modeChanged',           // CMS event listeners
+            '<script id="cms-toolbar-script">', // Toolbar script
+            'data-cms-toolbar',          // Toolbar data attribute
+        ];
+
+        foreach ($toolbarIndicators as $indicator) {
+            if (strpos($content, $indicator) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if the current request should be excluded from CMS
      */
     protected function shouldExclude($request)
@@ -728,14 +883,15 @@ class InjectEditableMarkers
         transition: all 0.2s ease;
     }
 
-    body.cms-edit-mode [data-cms-editable]:not([data-cms-type="link"]):not([data-cms-type="button"]) {
+    /* Hide all editable indicators by default - only show in edit mode */
+    body.cms-edit-mode [data-cms-editable]:not([data-cms-type="link"]) {
         outline: 2px dashed transparent;
         outline-offset: 4px;
         cursor: pointer;
         min-height: 20px;
     }
 
-    body.cms-edit-mode [data-cms-editable]:not([data-cms-type="link"]):not([data-cms-type="button"]):hover {
+    body.cms-edit-mode [data-cms-editable]:not([data-cms-type="link"]):hover {
         outline-color: #0066ff;
         background-color: rgba(0, 102, 255, 0.05);
     }
@@ -745,9 +901,8 @@ class InjectEditableMarkers
         background-color: rgba(0, 102, 255, 0.1);
     }
 
-    /* Link, Button and Image specific styles */
-    body.cms-edit-mode [data-cms-type="link"],
-    body.cms-edit-mode [data-cms-type="button"] {
+    /* Link and Image specific styles */
+    body.cms-edit-mode [data-cms-type="link"] {
         position: relative;
     }
 
@@ -825,9 +980,8 @@ class InjectEditableMarkers
         fill: white;
     }
 
-    /* Show gear on hover of link, button, or image */
+    /* Show gear on hover of link or image */
     body.cms-edit-mode [data-cms-type="link"]:hover .cms-link-gear,
-    body.cms-edit-mode [data-cms-type="button"]:hover .cms-link-gear,
     body.cms-edit-mode [data-cms-type="image"]:hover .cms-link-gear,
     body.cms-edit-mode .cms-image-wrapper:hover .cms-link-gear,
     body.cms-edit-mode .cms-link-gear:hover,
@@ -837,7 +991,6 @@ class InjectEditableMarkers
 
     /* Invisible bridge to maintain hover */
     body.cms-edit-mode [data-cms-type="link"]::after,
-    body.cms-edit-mode [data-cms-type="button"]::after,
     body.cms-edit-mode [data-cms-type="image"]::after {
         content: '';
         position: absolute;
@@ -851,11 +1004,11 @@ class InjectEditableMarkers
     }
 
     body.cms-edit-mode [data-cms-type="link"]:hover::after,
-    body.cms-edit-mode [data-cms-type="button"]:hover::after,
     body.cms-edit-mode [data-cms-type="image"]:hover::after {
         pointer-events: auto;
     }
 
+    /* Type labels - only visible in edit mode */
     body.cms-edit-mode [data-cms-editable]::before {
         content: attr(data-cms-type);
         position: absolute;
@@ -1047,8 +1200,8 @@ class InjectEditableMarkers
             editables.forEach(element => {
                 const type = element.getAttribute('data-cms-type');
 
-                // Handle links, buttons, and images with gear icon
-                if (type === 'link' || type === 'button' || type === 'image') {
+                // Handle links and images with gear icon
+                if (type === 'link' || type === 'image') {
                     initializeLinkElement(element);
                 } else {
                     // Remove any existing listeners
@@ -1091,7 +1244,7 @@ class InjectEditableMarkers
                 return;
             }
 
-            // For links and buttons, handle normally
+            // For links, handle normally
             // Remove existing gear if any
             const existingGear = element.querySelector('.cms-link-gear');
             if (existingGear) {
@@ -1142,6 +1295,13 @@ class InjectEditableMarkers
 
             // Add click handler to gear
             gear.addEventListener('click', function(e) {
+                // Only allow editing when in edit mode
+                if (!document.body.classList.contains('cms-edit-mode')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+
                 e.preventDefault();
                 e.stopPropagation();
                 const type = element.getAttribute('data-cms-type');
@@ -1191,6 +1351,13 @@ class InjectEditableMarkers
 
             // Add click handler to gear
             gear.addEventListener('click', function(e) {
+                // Only allow editing when in edit mode
+                if (!document.body.classList.contains('cms-edit-mode')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+
                 e.preventDefault();
                 e.stopPropagation();
                 openImageEditor(imageElement);
@@ -1199,7 +1366,12 @@ class InjectEditableMarkers
 
         // Handle click on editable element
         function handleEditableClick(e) {
-            if (!document.body.classList.contains('cms-edit-mode')) return;
+            // Only allow editing when in edit mode
+            if (!document.body.classList.contains('cms-edit-mode')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
 
             e.preventDefault();
             e.stopPropagation();
