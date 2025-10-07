@@ -5,6 +5,7 @@ use Webook\LaravelCMS\Http\Controllers\ToolbarController;
 use Webook\LaravelCMS\Http\Controllers\ContentController;
 use Webook\LaravelCMS\Http\Controllers\MediaController;
 use Webook\LaravelCMS\Http\Controllers\SettingsController;
+use Webook\LaravelCMS\Http\Controllers\TranslationController;
 
 // CMS API routes (no authentication for toolbar functionality)
 Route::prefix('cms')->group(function () {
@@ -14,6 +15,7 @@ Route::prefix('cms')->group(function () {
     Route::post('/settings', [SettingsController::class, 'save']);
     Route::get('/settings/exclusions', [SettingsController::class, 'getExclusions']);
     Route::get('/template-items', [ToolbarController::class, 'getTemplateItems']);
+    Route::post('/route/inspect', [ToolbarController::class, 'inspectRoute']);
 
     // Content management routes
     Route::post('/content/save', [ContentController::class, 'save']);
@@ -32,4 +34,10 @@ Route::prefix('cms')->group(function () {
     Route::get('/media/folders', [MediaController::class, 'getFolders']);
     Route::post('/media/folders', [MediaController::class, 'createFolder']);
     Route::delete('/media/folders/{id}', [MediaController::class, 'deleteFolder']);
+
+    // Translation routes
+    Route::get('/translations/locales', [TranslationController::class, 'getLocales']);
+    Route::get('/translations/page', [TranslationController::class, 'getPageTranslations']);
+    Route::get('/translations/get', [TranslationController::class, 'getTranslation']);
+    Route::post('/translations/update', [TranslationController::class, 'updateTranslation']);
 });

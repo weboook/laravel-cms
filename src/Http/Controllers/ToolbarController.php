@@ -68,7 +68,11 @@ class ToolbarController extends Controller
                 }
             }
 
-            return in_array('GET', $methods)
+            // Only include routes that are GET/HEAD only (actual page routes)
+            $allowedMethods = array_diff($methods, ['GET', 'HEAD']);
+            $hasOnlyGetHead = empty($allowedMethods);
+
+            return $hasOnlyGetHead
                 && !str_starts_with($uri, 'api/')
                 && !str_starts_with($uri, 'cms/')
                 && !str_starts_with($uri, '_')
@@ -114,7 +118,11 @@ class ToolbarController extends Controller
                 }
             }
 
-            return in_array('GET', $methods)
+            // Only include routes that are GET/HEAD only (actual page routes)
+            $allowedMethods = array_diff($methods, ['GET', 'HEAD']);
+            $hasOnlyGetHead = empty($allowedMethods);
+
+            return $hasOnlyGetHead
                 && !str_starts_with($uri, 'api/')
                 && !str_starts_with($uri, 'cms/')
                 && !str_starts_with($uri, '_')
@@ -148,20 +156,194 @@ class ToolbarController extends Controller
     }
 
     /**
+     * Inspect a route/URL and return its view file
+     */
+    public function inspectRoute(Request $request)
+    {
+        $url = $request->input('url');
+
+        if (!$url) {
+            return response()->json([
+                'success' => false,
+                'error' => 'URL is required'
+            ], 400);
+        }
+
+        // Parse the URL to get the path
+        $parsedUrl = parse_url($url);
+        $path = $parsedUrl['path'] ?? '/';
+        $path = trim($path, '/');
+
+        // Try to find the matching route
+        try {
+            $routes = Route::getRoutes();
+
+            foreach ($routes as $route) {
+                $routeUri = trim($route->uri(), '/');
+
+                // Check for exact match
+                if ($routeUri === $path || ($path === '' && $routeUri === '/')) {
+                    $action = $route->getAction();
+
+                    // Check if it's a Route::view()
+                    if (isset($action['view'])) {
+                        $viewName = $action['view'];
+                        $filePath = $this->viewNameToFilePath($viewName);
+
+                        if ($filePath) {
+                            // Return relative path from base_path
+                            $relativePath = str_replace(base_path() . '/', '', $filePath);
+
+                            return response()->json([
+                                'success' => true,
+                                'file_path' => $relativePath,
+                                'view_name' => $viewName,
+                                'route_uri' => $routeUri,
+                                'route_name' => $route->getName()
+                            ]);
+                        }
+                    }
+
+                    // Check if it uses a controller
+                    if (isset($action['controller'])) {
+                        // Try to infer view from controller method
+                        $viewPath = $this->inferViewFromController($action['controller'], $route);
+
+                        if ($viewPath) {
+                            $relativePath = str_replace(base_path() . '/', '', $viewPath);
+
+                            return response()->json([
+                                'success' => true,
+                                'file_path' => $relativePath,
+                                'route_uri' => $routeUri,
+                                'route_name' => $route->getName(),
+                                'inferred' => true
+                            ]);
+                        }
+                    }
+
+                    // If we found the route but couldn't determine the view
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Route found but could not determine view file',
+                        'route_uri' => $routeUri,
+                        'route_name' => $route->getName()
+                    ], 400);
+                }
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'No matching route found'
+            ], 404);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to inspect route: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Convert Laravel view name to file path
+     */
+    protected function viewNameToFilePath($viewName)
+    {
+        // Convert view name like 'pages.about' to 'pages/about.blade.php'
+        $relativePath = str_replace('.', '/', $viewName) . '.blade.php';
+        $filePath = resource_path('views/' . $relativePath);
+
+        if (file_exists($filePath)) {
+            return $filePath;
+        }
+
+        return null;
+    }
+
+    /**
+     * Try to infer view from controller action
+     */
+    protected function inferViewFromController($controller, $route)
+    {
+        // Extract controller class and method
+        if (is_string($controller)) {
+            [$class, $method] = explode('@', $controller);
+        } else {
+            return null;
+        }
+
+        // Common patterns for view names based on controller
+        $patterns = [];
+
+        // Get route URI for pattern matching
+        $uri = $route->uri();
+        $segments = explode('/', trim($uri, '/'));
+
+        // Pattern 1: Direct match with route URI (e.g., 'pages/about' -> 'pages.about')
+        if (!empty($uri) && $uri !== '/') {
+            $patterns[] = str_replace('/', '.', trim($uri, '/'));
+        }
+
+        // Pattern 2: Based on controller name
+        // e.g., PagesController -> 'pages'
+        if (preg_match('/(\w+)Controller$/', class_basename($class), $matches)) {
+            $controllerBase = strtolower($matches[1]);
+
+            // Pattern 2a: controller.method (e.g., 'pages.about')
+            if ($method && $method !== 'index') {
+                $patterns[] = $controllerBase . '.' . $method;
+            }
+
+            // Pattern 2b: just method (e.g., 'about')
+            if ($method && $method !== 'index') {
+                $patterns[] = $method;
+            }
+
+            // Pattern 2c: controller/method (e.g., 'pages/about')
+            if ($method && $method !== 'index') {
+                $patterns[] = $controllerBase . '/' . $method;
+            }
+        }
+
+        // Pattern 3: Based on last segment of URI
+        if (count($segments) > 0) {
+            $lastSegment = end($segments);
+            if ($lastSegment) {
+                $patterns[] = $lastSegment;
+            }
+        }
+
+        // Try each pattern
+        foreach ($patterns as $pattern) {
+            $viewPath = $this->viewNameToFilePath($pattern);
+            if ($viewPath) {
+                return $viewPath;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Get available languages/locales
      */
     public function getLanguages()
     {
         $currentLocale = App::getLocale();
         $availableLocales = [];
+        $hasTranslationFiles = false;
 
         // Check if locale configuration exists
         $locales = config('app.locales', []);
 
-        if (empty($locales)) {
-            // Try to detect from lang directory
-            $langPath = resource_path('lang');
-            if (File::exists($langPath)) {
+        // Try to detect from lang directory
+        $langPath = resource_path('lang');
+        if (File::exists($langPath)) {
+            $hasTranslationFiles = true;
+
+            if (empty($locales)) {
+                // Get directories (each represents a locale)
                 $directories = File::directories($langPath);
                 foreach ($directories as $dir) {
                     $locale = basename($dir);
@@ -169,17 +351,55 @@ class ToolbarController extends Controller
                         'code' => $locale,
                         'name' => $this->getLocaleName($locale),
                         'native_name' => $this->getLocaleNativeName($locale),
-                        'active' => $locale === $currentLocale
+                        'active' => $locale === $currentLocale,
+                        'has_files' => true
+                    ];
+                }
+
+                // Also check for JSON translation files
+                $jsonFiles = File::glob($langPath . '/*.json');
+                foreach ($jsonFiles as $file) {
+                    $locale = basename($file, '.json');
+                    // Check if already added
+                    $exists = false;
+                    foreach ($availableLocales as $existing) {
+                        if ($existing['code'] === $locale) {
+                            $exists = true;
+                            break;
+                        }
+                    }
+                    if (!$exists) {
+                        $availableLocales[] = [
+                            'code' => $locale,
+                            'name' => $this->getLocaleName($locale),
+                            'native_name' => $this->getLocaleNativeName($locale),
+                            'active' => $locale === $currentLocale,
+                            'has_files' => true
+                        ];
+                    }
+                }
+            } else {
+                foreach ($locales as $code => $name) {
+                    $localeCode = is_numeric($code) ? $name : $code;
+                    $availableLocales[] = [
+                        'code' => $localeCode,
+                        'name' => is_numeric($code) ? $this->getLocaleName($name) : $name,
+                        'native_name' => $this->getLocaleNativeName($localeCode),
+                        'active' => $localeCode === $currentLocale,
+                        'has_files' => File::exists($langPath . '/' . $localeCode)
                     ];
                 }
             }
-        } else {
+        } else if (!empty($locales)) {
+            // Use configured locales even if lang directory doesn't exist
             foreach ($locales as $code => $name) {
+                $localeCode = is_numeric($code) ? $name : $code;
                 $availableLocales[] = [
-                    'code' => is_numeric($code) ? $name : $code,
+                    'code' => $localeCode,
                     'name' => is_numeric($code) ? $this->getLocaleName($name) : $name,
-                    'native_name' => $this->getLocaleNativeName(is_numeric($code) ? $name : $code),
-                    'active' => (is_numeric($code) ? $name : $code) === $currentLocale
+                    'native_name' => $this->getLocaleNativeName($localeCode),
+                    'active' => $localeCode === $currentLocale,
+                    'has_files' => false
                 ];
             }
         }
@@ -190,14 +410,16 @@ class ToolbarController extends Controller
                 'code' => 'en',
                 'name' => 'English',
                 'native_name' => 'English',
-                'active' => true
+                'active' => true,
+                'has_files' => false
             ];
         }
 
         return response()->json([
             'current' => $currentLocale,
             'available' => $availableLocales,
-            'multilingual' => count($availableLocales) > 1
+            'multilingual' => count($availableLocales) > 1,
+            'has_translation_system' => $hasTranslationFiles
         ]);
     }
 

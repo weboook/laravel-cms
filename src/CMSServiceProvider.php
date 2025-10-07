@@ -4,6 +4,7 @@ namespace Webook\LaravelCMS;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Contracts\Http\Kernel;
 use Webook\LaravelCMS\Http\Middleware\InjectToolbar;
 use Webook\LaravelCMS\Http\Middleware\InjectEditableMarkers;
@@ -66,5 +67,67 @@ class CMSServiceProvider extends ServiceProvider
         $kernel = $this->app->make(Kernel::class);
         $kernel->pushMiddleware(InjectEditableMarkers::class);
         $kernel->pushMiddleware(InjectToolbar::class);
+
+        // Register Blade directives for translations
+        $this->registerBladeDirectives();
+    }
+
+    /**
+     * Register Blade directives for CMS translations
+     */
+    protected function registerBladeDirectives()
+    {
+        // @translation directive - wraps translated content to make it editable
+        // Usage: @translation('welcome.message') or @translation('welcome.message', 'messages')
+        Blade::directive('translation', function ($expression) {
+            // Parse the expression to get key and optional file
+            $parts = explode(',', $expression);
+            $key = trim($parts[0], " \t\n\r\0\x0B'\"");
+            $file = isset($parts[1]) ? trim($parts[1], " \t\n\r\0\x0B'\"") : null;
+
+            // Generate a unique ID for this translation
+            $id = 'trans-' . substr(md5($key), 0, 16);
+
+            // Build the data attributes
+            $attrs = "data-cms-editable=\"true\" data-cms-type=\"translation\" data-cms-id=\"{$id}\" data-translation-key=\"{$key}\"";
+            if ($file) {
+                $attrs .= " data-translation-file=\"{$file}\"";
+            }
+
+            return "<?php echo '<span ' . e('{$attrs}') . '>' . __({$expression}) . '</span>'; ?>";
+        });
+
+        // @trans directive - alias for @translation
+        Blade::directive('trans', function ($expression) {
+            $parts = explode(',', $expression);
+            $key = trim($parts[0], " \t\n\r\0\x0B'\"");
+            $file = isset($parts[1]) ? trim($parts[1], " \t\n\r\0\x0B'\"") : null;
+
+            $id = 'trans-' . substr(md5($key), 0, 16);
+            $attrs = "data-cms-editable=\"true\" data-cms-type=\"translation\" data-cms-id=\"{$id}\" data-translation-key=\"{$key}\"";
+            if ($file) {
+                $attrs .= " data-translation-file=\"{$file}\"";
+            }
+
+            return "<?php echo '<span ' . e('{$attrs}') . '>' . trans({$expression}) . '</span>'; ?>";
+        });
+
+        // @translateChoice directive - for plural translations
+        Blade::directive('translateChoice', function ($expression) {
+            // Parse expression like ('messages.apples', $count)
+            preg_match("/\(\s*'([^']+)'\s*,\s*(.+?)\s*\)/", $expression, $matches);
+
+            if (!empty($matches)) {
+                $key = $matches[1];
+                $count = $matches[2];
+
+                $id = 'trans-' . substr(md5($key), 0, 16);
+                $attrs = "data-cms-editable=\"true\" data-cms-type=\"translation\" data-cms-id=\"{$id}\" data-translation-key=\"{$key}\" data-translation-plural=\"true\"";
+
+                return "<?php echo '<span ' . e('{$attrs}') . '>' . trans_choice('{$key}', {$count}) . '</span>'; ?>";
+            }
+
+            return "<?php echo trans_choice({$expression}); ?>";
+        });
     }
 }

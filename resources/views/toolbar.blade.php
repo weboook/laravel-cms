@@ -382,22 +382,56 @@
 </div>
 
 <style>
-    .cms-toolbar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: #1a1a1a;
-        border-top: 1px solid #333;
-        z-index: 999999;
+    /*
+     * CMS Toolbar Isolation Strategy
+     * ===============================
+     * All CSS is scoped under .cms- prefix to prevent conflicts with host website
+     * JavaScript is wrapped in IIFE with 'use strict' to avoid global scope pollution
+     * Only window.CMS and window.showToast are exposed globally (namespaced)
+     * Event listeners use event delegation with CMS-specific class checks
+     * Very high z-index (999999+) ensures toolbar stays on top
+     */
+
+    /* CSS Reset for CMS elements - prevents host site styles from breaking CMS */
+    .cms-toolbar,
+    .cms-toolbar *,
+    .cms-modal-container,
+    .cms-modal-container *,
+    .cms-toast-container,
+    .cms-toast-container * {
+        all: initial;
+        box-sizing: border-box;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        font-size: 14px;
-        color: #e0e0e0;
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Re-enable inheritance for nested elements */
+    .cms-toolbar *,
+    .cms-modal-container *,
+    .cms-toast-container * {
+        font-family: inherit;
+        color: inherit;
+    }
+
+    .cms-toolbar {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        background: #1a1a1a !important;
+        border-top: 1px solid #333 !important;
+        z-index: 999999 !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        font-size: 14px !important;
+        color: #e0e0e0 !important;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        display: block !important;
     }
 
     .cms-toolbar * {
-        box-sizing: border-box;
+        box-sizing: border-box !important;
     }
 
     .cms-toolbar-container {
@@ -527,21 +561,24 @@
 
     /* Modal Styles */
     .cms-modal-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 1000000;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        z-index: 1000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
     }
 
     .cms-modal-backdrop {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background: rgba(0, 0, 0, 0.7) !important;
         backdrop-filter: blur(2px);
     }
 
@@ -569,11 +606,14 @@
 
     /* Toast Notification Styles */
     .cms-toast-container {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 999999;
-        pointer-events: none;
+        position: fixed !important;
+        top: 20px !important;
+        right: 20px !important;
+        z-index: 999999 !important;
+        pointer-events: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
     }
 
     .cms-toast {
@@ -1367,10 +1407,19 @@
 </style>
 
 <script>
+    /*
+     * CMS Toolbar JavaScript - Isolation Strategy
+     * ============================================
+     * - Wrapped in IIFE (Immediately Invoked Function Expression) to avoid global scope pollution
+     * - 'use strict' mode enabled for better error catching
+     * - Only exposes window.CMS and window.showToast to global scope (namespaced to prevent conflicts)
+     * - All event listeners check for CMS-specific classes before executing
+     * - No modification of host website's DOM, events, or variables
+     */
     (function() {
         'use strict';
 
-        // CMS object
+        // CMS object - only global exposure (namespaced)
         window.CMS = window.CMS || {};
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -1562,7 +1611,8 @@
                         const langBtn = toolbar.querySelector('.cms-btn-languages');
                         const langSeparator = toolbar.querySelector('.cms-languages-separator');
 
-                        if (data.multilingual) {
+                        // Show languages button if multilingual OR has translation system
+                        if (data.multilingual || data.has_translation_system) {
                             langBtn.style.display = '';
                             langSeparator.style.display = '';
                         }
@@ -3060,7 +3110,31 @@
             }
 
             // Save single content change
-            function saveContentChange(change) {
+            async function saveContentChange(change) {
+                // First, inspect the route to get the file_hint
+                let fileHint = null;
+
+                try {
+                    const inspectResponse = await fetch(apiBaseUrl + '/route/inspect', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({
+                            url: window.location.href.split('#')[0]
+                        })
+                    });
+
+                    const inspectData = await inspectResponse.json();
+                    if (inspectData.success && inspectData.file_path) {
+                        fileHint = inspectData.file_path;
+                        console.log('File hint resolved:', fileHint);
+                    }
+                } catch (error) {
+                    console.warn('Could not inspect route, proceeding without file hint:', error);
+                }
+
                 return fetch(apiBaseUrl + '/content/save', {
                     method: 'POST',
                     headers: {
@@ -3073,7 +3147,7 @@
                         original_content: change.originalContent || '',
                         type: change.type || 'text',
                         page_url: window.location.href.split('#')[0], // Remove hash fragment
-                        file_hint: null
+                        file_hint: fileHint
                     })
                 })
                 .then(response => response.json())

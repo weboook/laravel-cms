@@ -92,10 +92,34 @@ class ContentController extends Controller
             'element_id' => 'required|string',
             'content' => 'required',
             'original_content' => 'nullable|string',
-            'type' => 'string|in:text,html,link,heading,image',
+            'type' => 'string|in:text,html,link,heading,image,translation',
             'page_url' => 'required|string',
-            'file_hint' => 'nullable|string'
+            'file_hint' => 'nullable|string',
+            'translation_key' => 'nullable|string',
+            'translation_file' => 'nullable|string'
         ]);
+
+        // Handle translation type differently
+        if ($validated['type'] === 'translation') {
+            if (!isset($validated['translation_key'])) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Translation key is required for translation type'
+                ], 400);
+            }
+
+            // Delegate to TranslationController
+            $translationController = app(\Webook\LaravelCMS\Http\Controllers\TranslationController::class);
+
+            $translationRequest = new Request([
+                'key' => $validated['translation_key'],
+                'value' => $validated['content'],
+                'locale' => \App::getLocale(),
+                'file' => $validated['translation_file'] ?? null
+            ]);
+
+            return $translationController->updateTranslation($translationRequest);
+        }
 
         // Try to determine the file from the page URL
         $file = $this->resolveFileFromUrl($validated['page_url'], $validated['file_hint'] ?? null);
@@ -182,6 +206,29 @@ class ContentController extends Controller
      */
     protected function resolveFileFromUrl($url, $hint = null)
     {
+        // Use hint if provided (this is now populated from the route inspection endpoint)
+        if ($hint && file_exists(base_path($hint))) {
+            return base_path($hint);
+        }
+
+        // If hint is provided but file doesn't exist, log a warning
+        if ($hint) {
+            $this->logger->warning('File hint provided but file does not exist', [
+                'hint' => $hint,
+                'base_path' => base_path($hint)
+            ]);
+        }
+
+        // Fallback: Try to resolve from URL
+        // This is less reliable but better than failing completely
+        return $this->resolveFileFromUrlFallback($url);
+    }
+
+    /**
+     * Fallback method to resolve file from URL when no hint is available
+     */
+    protected function resolveFileFromUrlFallback($url)
+    {
         // Remove hash fragment from URL
         $url = strtok($url, '#');
 
@@ -201,18 +248,36 @@ class ContentController extends Controller
             resource_path('views/layouts'),
         ];
 
+        // Generate possible view file patterns for the path
+        $pathSegments = explode('/', $path);
+        $possiblePaths = [$path];
+
+        // If path has segments like "pages/about", also try just "about"
+        if (count($pathSegments) > 1) {
+            $lastSegment = array_pop($pathSegments);
+            $possiblePaths[] = $lastSegment;
+
+            // Also try in a subfolder (first segment as folder)
+            if (!empty($pathSegments)) {
+                $firstSegment = $pathSegments[0];
+                $possiblePaths[] = $firstSegment . '/' . $lastSegment;
+            }
+        }
+
         // Try to find corresponding view file
         foreach ($viewPaths as $viewPath) {
-            // Check for blade files
-            $bladeFile = $viewPath . '/' . $path . '.blade.php';
-            if (file_exists($bladeFile)) {
-                return $bladeFile;
-            }
+            foreach ($possiblePaths as $possiblePath) {
+                // Check for blade files with direct path
+                $bladeFile = $viewPath . '/' . $possiblePath . '.blade.php';
+                if (file_exists($bladeFile)) {
+                    return $bladeFile;
+                }
 
-            // Check with replaced slashes
-            $bladeFile = $viewPath . '/' . str_replace('/', '.', $path) . '.blade.php';
-            if (file_exists($bladeFile)) {
-                return $bladeFile;
+                // Check with replaced slashes (for dot notation)
+                $bladeFile = $viewPath . '/' . str_replace('/', '.', $possiblePath) . '.blade.php';
+                if (file_exists($bladeFile)) {
+                    return $bladeFile;
+                }
             }
 
             // Check for home/index pages
@@ -236,11 +301,6 @@ class ContentController extends Controller
         $publicFile = public_path($path);
         if (file_exists($publicFile) && is_file($publicFile)) {
             return $publicFile;
-        }
-
-        // Use hint if provided
-        if ($hint && file_exists(base_path($hint))) {
-            return base_path($hint);
         }
 
         return null;

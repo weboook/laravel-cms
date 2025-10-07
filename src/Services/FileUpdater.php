@@ -303,57 +303,137 @@ class FileUpdater
                 }
 
                 // If data-cms-id not in source, but we have it from the element
-                // Try to match by original src and add the data-cms-id to the file
+                // Try to find the image by matching the filename or path pattern
                 if (str_starts_with($elementId, 'img-')) {
-                    // This is an auto-generated ID, find by original content
-                    if ($originalContent && !empty($originalContent)) {
-                        // Find the image by its current src
-                        $escapedSrc = preg_quote($originalContent, '/');
-                        $pattern = '/<img[^>]*src=["\']' . $escapedSrc . '["\'][^>]*>/i';
+                    // This is an auto-generated ID, we need to be smarter about finding it
 
+                    // Extract filename from the original content URL
+                    $filename = '';
+                    if ($originalContent && !empty($originalContent)) {
+                        $parsedUrl = parse_url($originalContent);
+                        $path = $parsedUrl['path'] ?? '';
+                        $filename = basename($path);
+                    }
+
+                    // Try multiple patterns to find the image
+                    $foundMatch = false;
+                    $imgTag = '';
+                    $imgPos = 0;
+
+                    // Pattern 1: Look for image with exact filename in asset() helper
+                    if ($filename && !$foundMatch) {
+                        // Match {{ asset('...filename...') }} or {!! asset('...filename...') !!}
+                        $pattern = '/<img[^>]*src=["\']\{\{[^}]*asset\([^)]*' . preg_quote($filename, '/') . '[^)]*\)[^}]*\}\}["\'][^>]*>/i';
                         if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
                             $imgTag = $matches[0][0];
                             $imgPos = $matches[0][1];
+                            $foundMatch = true;
+                            $this->logger->info('Found image by asset() helper pattern', [
+                                'pattern' => 'asset() with filename',
+                                'filename' => $filename
+                            ]);
+                        }
+                    }
 
-                            // Add data-cms-id if not present
-                            if (!str_contains($imgTag, 'data-cms-id')) {
-                                $imgTag = str_replace('<img', '<img data-cms-id="' . $elementId . '"', $imgTag);
+                    // Pattern 2: Look for image with exact filename in url() helper
+                    if ($filename && !$foundMatch) {
+                        $pattern = '/<img[^>]*src=["\']\{\{[^}]*url\([^)]*' . preg_quote($filename, '/') . '[^)]*\)[^}]*\}\}["\'][^>]*>/i';
+                        if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                            $imgTag = $matches[0][0];
+                            $imgPos = $matches[0][1];
+                            $foundMatch = true;
+                            $this->logger->info('Found image by url() helper pattern', [
+                                'pattern' => 'url() with filename'
+                            ]);
+                        }
+                    }
+
+                    // Pattern 3: Look for image with partial path match (e.g., 'images/innovation.jpg')
+                    if (!$foundMatch && $originalContent) {
+                        // Extract relative path like 'images/innovation.jpg'
+                        $relativePath = preg_replace('/^.*\/(images\/[^\/]+)$/', '$1', $originalContent);
+                        if ($relativePath !== $originalContent) {
+                            $pattern = '/<img[^>]*src=[^>]*' . preg_quote($relativePath, '/') . '[^>]*>/i';
+                            if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                                $imgTag = $matches[0][0];
+                                $imgPos = $matches[0][1];
+                                $foundMatch = true;
+                                $this->logger->info('Found image by relative path pattern', [
+                                    'pattern' => 'relative path',
+                                    'path' => $relativePath
+                                ]);
                             }
+                        }
+                    }
 
-                            // Update src
+                    // Pattern 4: Find ANY img tag with similar class/alt attributes
+                    if (!$foundMatch && $filename) {
+                        // Try to find by class or alt that might contain the filename
+                        $filenameBase = pathinfo($filename, PATHINFO_FILENAME);
+                        $pattern = '/<img[^>]*(alt|class)[^>]*' . preg_quote($filenameBase, '/') . '[^>]*>/i';
+                        if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                            $imgTag = $matches[0][0];
+                            $imgPos = $matches[0][1];
+                            $foundMatch = true;
+                            $this->logger->info('Found image by alt/class pattern', [
+                                'pattern' => 'alt/class with filename base'
+                            ]);
+                        }
+                    }
+
+                    // If we found a match, update it
+                    if ($foundMatch && $imgTag) {
+                        // Add data-cms-id if not present
+                        if (!str_contains($imgTag, 'data-cms-id')) {
+                            $imgTag = str_replace('<img', '<img data-cms-id="' . $elementId . '"', $imgTag);
+                        }
+
+                        // Update src - preserve the Blade syntax
+                        $newImgTag = $imgTag;
+
+                        // If src uses asset() helper, update just the path inside
+                        if (preg_match('/src=["\']\{\{[^}]*asset\([\'"]([^\'"]+)[\'"]\)[^}]*\}\}["\']/', $imgTag, $srcMatch)) {
+                            $oldPath = $srcMatch[1];
+                            // Extract just the path from the new URL
+                            $newPath = preg_replace('/^https?:\/\/[^\/]+\//', '', $newContent['src']);
+                            $newImgTag = str_replace("asset('{$oldPath}')", "asset('{$newPath}')", $newImgTag);
+                            $newImgTag = str_replace('asset("' . $oldPath . '")', 'asset("' . $newPath . '")', $newImgTag);
+                        } else {
+                            // Fallback: replace the entire src attribute
                             $newImgTag = preg_replace(
                                 '/src=["\'][^"\']*["\']/',
                                 'src="' . $newContent['src'] . '"',
                                 $imgTag
                             );
-
-                            // Update alt if provided
-                            if (isset($newContent['alt'])) {
-                                if (preg_match('/alt=["\'][^"\']*["\']/', $newImgTag)) {
-                                    $newImgTag = preg_replace(
-                                        '/alt=["\'][^"\']*["\']/',
-                                        'alt="' . $newContent['alt'] . '"',
-                                        $newImgTag
-                                    );
-                                } else {
-                                    $newImgTag = preg_replace(
-                                        '/<img/',
-                                        '<img alt="' . $newContent['alt'] . '"',
-                                        $newImgTag
-                                    );
-                                }
-                            }
-
-                            $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
-
-                            $this->logger->info('Updated image by original src and added data-cms-id', [
-                                'element_id' => $elementId,
-                                'original_src' => $originalContent,
-                                'new_src' => $newContent['src']
-                            ]);
-
-                            return $content;
                         }
+
+                        // Update alt if provided
+                        if (isset($newContent['alt'])) {
+                            if (preg_match('/alt=["\'][^"\']*["\']/', $newImgTag)) {
+                                $newImgTag = preg_replace(
+                                    '/alt=["\'][^"\']*["\']/',
+                                    'alt="' . $newContent['alt'] . '"',
+                                    $newImgTag
+                                );
+                            } else {
+                                $newImgTag = preg_replace(
+                                    '/<img/',
+                                    '<img alt="' . $newContent['alt'] . '"',
+                                    $newImgTag
+                                );
+                            }
+                        }
+
+                        $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
+
+                        $this->logger->info('Updated image with Blade syntax preservation', [
+                            'element_id' => $elementId,
+                            'original_src' => $originalContent,
+                            'new_src' => $newContent['src'],
+                            'found_by' => $foundMatch ? 'pattern matching' : 'unknown'
+                        ]);
+
+                        return $content;
                     }
                 }
 
