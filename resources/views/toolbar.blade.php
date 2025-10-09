@@ -23,8 +23,18 @@
             </div>
         </div>
 
-        {{-- Middle Section: Pages/Languages --}}
+        {{-- Middle Section: SEO/Meta, Pages/Languages --}}
         <div class="cms-toolbar-section cms-toolbar-middle">
+            <button class="cms-btn cms-btn-seo" data-modal="seo">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+                </svg>
+                <span>SEO</span>
+            </button>
+
+            <div class="cms-separator"></div>
+
             <button class="cms-btn cms-btn-pages" data-modal="pages">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -112,6 +122,48 @@
         <div class="cms-modal-body">
             <div class="cms-languages-list" id="cms-languages-list">
                 <div class="cms-loading">Loading languages...</div>
+            </div>
+        </div>
+    </div>
+
+    {{-- SEO/Metadata Modal --}}
+    <div class="cms-modal cms-modal-seo" data-modal="seo" style="display: none;">
+        <div class="cms-modal-header">
+            <h2>SEO & Metadata</h2>
+            <button class="cms-modal-close">&times;</button>
+        </div>
+        <div class="cms-modal-body">
+            <div class="cms-seo-form">
+                <div class="cms-form-group">
+                    <label class="cms-label" for="cms-seo-locale">Language</label>
+                    <select class="cms-select" id="cms-seo-locale">
+                        <option value="">Loading...</option>
+                    </select>
+                    <small class="cms-help-text">Select language for metadata</small>
+                </div>
+
+                <div class="cms-form-group">
+                    <label class="cms-label" for="cms-meta-title">Meta Title</label>
+                    <input type="text" class="cms-input" id="cms-meta-title" placeholder="Enter page title for search engines">
+                    <small class="cms-help-text">Recommended: 50-60 characters</small>
+                </div>
+
+                <div class="cms-form-group">
+                    <label class="cms-label" for="cms-meta-description">Meta Description</label>
+                    <textarea class="cms-textarea" id="cms-meta-description" rows="3" placeholder="Enter page description for search engines"></textarea>
+                    <small class="cms-help-text">Recommended: 150-160 characters</small>
+                </div>
+
+                <div class="cms-form-group">
+                    <label class="cms-label" for="cms-social-image">Social Share Image URL</label>
+                    <input type="text" class="cms-input" id="cms-social-image" placeholder="https://example.com/image.jpg">
+                    <small class="cms-help-text">Image for social media sharing (Open Graph, Twitter Card)</small>
+                </div>
+
+                <div class="cms-form-actions">
+                    <button class="cms-btn cms-btn-primary" id="cms-save-seo">Save Metadata</button>
+                    <button class="cms-btn" id="cms-cancel-seo">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
@@ -624,9 +676,12 @@
         margin-bottom: 10px;
         min-width: 300px;
         max-width: 400px;
+        height: auto;
+        min-height: auto;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         display: flex;
-        align-items: center;
+        flex-direction: row;
+        align-items: flex-start;
         gap: 12px;
         pointer-events: auto;
         animation: slideIn 0.3s ease-out;
@@ -663,20 +718,39 @@
         flex-shrink: 0;
         width: 20px;
         height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cms-toast-icon svg {
+        display: block;
+        width: 20px;
+        height: 20px;
     }
 
     .cms-toast-content {
         flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
     }
 
     .cms-toast-title {
         font-weight: 600;
-        margin-bottom: 4px;
+        margin: 0;
+        padding: 0;
+        line-height: 1.4;
     }
 
     .cms-toast-message {
         font-size: 14px;
         opacity: 0.9;
+        margin: 0;
+        padding: 0;
+        line-height: 1.4;
+        word-wrap: break-word;
     }
 
     .cms-toast-close {
@@ -772,7 +846,21 @@
         outline: none;
     }
 
-    .cms-input:focus {
+    .cms-textarea {
+        width: 100%;
+        background: #2a2a2a;
+        border: 1px solid #404040;
+        border-radius: 4px;
+        padding: 10px;
+        color: #e0e0e0;
+        font-size: 14px;
+        outline: none;
+        resize: vertical;
+        font-family: inherit;
+    }
+
+    .cms-input:focus,
+    .cms-textarea:focus {
         border-color: #0066ff;
     }
 
@@ -1592,6 +1680,13 @@
                 document.getElementById('cms-cancel-image')?.addEventListener('click', () => closeModal());
                 setupImageDropzone();
 
+                // SEO/Metadata handlers
+                document.getElementById('cms-save-seo')?.addEventListener('click', saveSeoMetadata);
+                document.getElementById('cms-cancel-seo')?.addEventListener('click', () => closeModal());
+                document.getElementById('cms-seo-locale')?.addEventListener('change', function() {
+                    loadSeoMetadata();
+                });
+
                 // Media library handlers
                 setupMediaLibrary();
 
@@ -1875,6 +1970,8 @@
                     // Load data if needed
                     if (modalName === 'settings') {
                         loadSettings();
+                    } else if (modalName === 'seo') {
+                        loadSeoMetadata();
                     }
                 }
             }
@@ -2078,6 +2175,99 @@
                 })
                 .catch(error => {
                     console.error('Failed to save settings:', error);
+                });
+            }
+
+            // Load SEO Metadata
+            function loadSeoMetadata() {
+                const localeSelect = document.getElementById('cms-seo-locale');
+                const locale = localeSelect.value || currentLanguage;
+
+                // First load available locales if not loaded yet
+                if (localeSelect.options.length <= 1) {
+                    fetch(apiBaseUrl + '/metadata/locales')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.locales) {
+                                localeSelect.innerHTML = '';
+                                data.locales.forEach(loc => {
+                                    const option = document.createElement('option');
+                                    option.value = loc;
+                                    option.textContent = loc.toUpperCase();
+                                    if (loc === data.current) {
+                                        option.selected = true;
+                                    }
+                                    localeSelect.appendChild(option);
+                                });
+
+                                // Load metadata for current locale
+                                loadSeoMetadataForLocale(data.current);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Failed to load locales:', error);
+                        });
+                } else {
+                    loadSeoMetadataForLocale(locale);
+                }
+            }
+
+            function loadSeoMetadataForLocale(locale) {
+                const pageUrl = window.location.pathname;
+
+                fetch(apiBaseUrl + '/metadata?' + new URLSearchParams({
+                    page_url: pageUrl,
+                    locale: locale
+                }))
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.metadata) {
+                            document.getElementById('cms-meta-title').value = data.metadata.meta_title || '';
+                            document.getElementById('cms-meta-description').value = data.metadata.meta_description || '';
+                            document.getElementById('cms-social-image').value = data.metadata.social_image || '';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Failed to load metadata:', error);
+                    });
+            }
+
+            // Save SEO Metadata
+            function saveSeoMetadata() {
+                const locale = document.getElementById('cms-seo-locale').value;
+                const pageUrl = window.location.pathname;
+                const metaTitle = document.getElementById('cms-meta-title').value;
+                const metaDescription = document.getElementById('cms-meta-description').value;
+                const socialImage = document.getElementById('cms-social-image').value;
+
+                const data = {
+                    page_url: pageUrl,
+                    locale: locale,
+                    meta_title: metaTitle,
+                    meta_description: metaDescription,
+                    social_image: socialImage
+                };
+
+                fetch(apiBaseUrl + '/metadata', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Metadata saved successfully', 'success');
+                        closeModal();
+                    } else {
+                        showToast('Failed to save metadata: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to save metadata:', error);
+                    showToast('Failed to save metadata', 'error');
                 });
             }
 

@@ -129,5 +129,14 @@ class CMSServiceProvider extends ServiceProvider
 
             return "<?php echo trans_choice({$expression}); ?>";
         });
+
+        // @cmsMetaTags directive - renders meta tags for SEO
+        // Usage: @cmsMetaTags or @cmsMetaTags('/about', 'en')
+        Blade::directive('cmsMetaTags', function ($expression) {
+            if (empty($expression)) {
+                return "<?php echo \Webook\LaravelCMS\Helpers\MetadataHelper::renderMetaTags(); ?>";
+            }
+            return "<?php echo \Webook\LaravelCMS\Helpers\MetadataHelper::renderMetaTags({$expression}); ?>";
+        });
     }
 }

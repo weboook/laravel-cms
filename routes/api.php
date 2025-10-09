@@ -6,6 +6,7 @@ use Webook\LaravelCMS\Http\Controllers\ContentController;
 use Webook\LaravelCMS\Http\Controllers\MediaController;
 use Webook\LaravelCMS\Http\Controllers\SettingsController;
 use Webook\LaravelCMS\Http\Controllers\TranslationController;
+use Webook\LaravelCMS\Http\Controllers\MetadataController;
 
 // CMS API routes (no authentication for toolbar functionality)
 Route::prefix('cms')->group(function () {
@@ -40,4 +41,9 @@ Route::prefix('cms')->group(function () {
     Route::get('/translations/page', [TranslationController::class, 'getPageTranslations']);
     Route::get('/translations/get', [TranslationController::class, 'getTranslation']);
     Route::post('/translations/update', [TranslationController::class, 'updateTranslation']);
+
+    // Metadata routes
+    Route::get('/metadata', [MetadataController::class, 'getMetadata']);
+    Route::post('/metadata', [MetadataController::class, 'saveMetadata']);
+    Route::get('/metadata/locales', [MetadataController::class, 'getAvailableLocales']);
 });
