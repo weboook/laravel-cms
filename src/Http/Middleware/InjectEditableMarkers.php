@@ -1598,6 +1598,18 @@ class InjectEditableMarkers
             // For other types, use innerHTML to preserve formatting
             const newContent = (type === 'translation') ? element.textContent : element.innerHTML;
 
+            // Debug logging for translations
+            if (type === 'translation') {
+                console.log('Translation save debug:', {
+                    contentId: contentId,
+                    textContent: element.textContent,
+                    innerHTML: element.innerHTML,
+                    newContent: newContent,
+                    originalAttr: element.getAttribute('data-cms-original'),
+                    translationKey: element.getAttribute('data-translation-key')
+                });
+            }
+
             // Remove contenteditable
             element.contentEditable = false;
             element.classList.remove('cms-editing');
