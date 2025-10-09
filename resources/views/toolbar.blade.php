@@ -1411,6 +1411,16 @@
         margin-bottom: 15px;
     }
 
+    .cms-seo-form .cms-form-group {
+        margin-bottom: 20px;
+    }
+
+    .cms-seo-form .cms-input,
+    .cms-seo-form .cms-textarea,
+    .cms-seo-form .cms-select {
+        margin-bottom: 10px;
+    }
+
     .cms-form-actions {
         display: flex;
         justify-content: flex-end;
@@ -1683,7 +1693,9 @@
                 document.getElementById('cms-save-seo')?.addEventListener('click', saveSeoMetadata);
                 document.getElementById('cms-cancel-seo')?.addEventListener('click', () => closeModal());
                 document.getElementById('cms-seo-locale')?.addEventListener('change', function() {
-                    loadSeoMetadata();
+                    if (!isLoadingSeoMetadata) {
+                        loadSeoMetadata(true);
+                    }
                 });
 
                 // Media library handlers
@@ -2178,12 +2190,15 @@
             }
 
             // Load SEO Metadata
-            function loadSeoMetadata() {
+            let isLoadingSeoMetadata = false;
+
+            function loadSeoMetadata(forceReload = false) {
                 const localeSelect = document.getElementById('cms-seo-locale');
                 const locale = localeSelect.value || currentLanguage;
 
                 // First load available locales if not loaded yet
                 if (localeSelect.options.length <= 1) {
+                    isLoadingSeoMetadata = true;
                     fetch(apiBaseUrl + '/metadata/locales')
                         .then(response => response.json())
                         .then(data => {
@@ -2202,11 +2217,13 @@
                                 // Load metadata for current locale
                                 loadSeoMetadataForLocale(data.current);
                             }
+                            isLoadingSeoMetadata = false;
                         })
                         .catch(error => {
                             console.error('Failed to load locales:', error);
+                            isLoadingSeoMetadata = false;
                         });
-                } else {
+                } else if (forceReload) {
                     loadSeoMetadataForLocale(locale);
                 }
             }
