@@ -3,6 +3,7 @@
 namespace Webook\LaravelCMS\Services;
 
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\HtmlString;
 
 class TranslationWrapper
 {
@@ -81,8 +82,8 @@ class TranslationWrapper
             $attrs .= sprintf(' data-translation-file="%s"', htmlspecialchars($file, ENT_QUOTES, 'UTF-8'));
         }
 
-        // Wrap in span with CMS attributes
-        return sprintf('<span %s>%s</span>', $attrs, $translation);
+        // Wrap in span with CMS attributes and return as HtmlString to prevent double-escaping
+        return new HtmlString(sprintf('<span %s>%s</span>', $attrs, $translation));
     }
 
     /**
@@ -122,8 +123,8 @@ class TranslationWrapper
             $attrs .= sprintf(' data-translation-file="%s"', htmlspecialchars($file, ENT_QUOTES, 'UTF-8'));
         }
 
-        // Wrap in span
-        return sprintf('<span %s>%s</span>', $attrs, $translation);
+        // Wrap in span and return as HtmlString to prevent double-escaping
+        return new HtmlString(sprintf('<span %s>%s</span>', $attrs, $translation));
     }
 
     /**
