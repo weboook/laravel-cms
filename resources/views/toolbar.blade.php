@@ -1,6 +1,3 @@
-{{-- Toast Notification Container --}}
-<div id="cms-toast-container" class="cms-toast-container"></div>
-
 <div id="cms-toolbar" class="cms-toolbar">
     <div class="cms-toolbar-container">
         {{-- Left Section: Edit/Preview Mode Toggle --}}
@@ -448,9 +445,7 @@
     .cms-toolbar,
     .cms-toolbar *,
     .cms-modal-container,
-    .cms-modal-container *,
-    .cms-toast-container,
-    .cms-toast-container * {
+    .cms-modal-container * {
         all: initial;
         box-sizing: border-box;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -458,8 +453,7 @@
 
     /* Re-enable inheritance for nested elements */
     .cms-toolbar *,
-    .cms-modal-container *,
-    .cms-toast-container * {
+    .cms-modal-container * {
         font-family: inherit;
         color: inherit;
     }
@@ -653,137 +647,6 @@
     .cms-modal-assets,
     .cms-modal-image-editor {
         max-width: 1200px;
-    }
-
-    /* Toast Notification Styles */
-    .cms-toast-container {
-        position: fixed !important;
-        top: 20px !important;
-        right: 20px !important;
-        z-index: 999999 !important;
-        pointer-events: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        display: block !important;
-    }
-
-    .cms-toast {
-        background: #2a2a2a;
-        color: #fff;
-        padding: 16px 20px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        min-width: 300px;
-        max-width: 400px;
-        height: auto;
-        min-height: auto;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-        display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        gap: 12px;
-        pointer-events: auto;
-        animation: slideIn 0.3s ease-out;
-        position: relative;
-    }
-
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-    }
-
-    .cms-toast.removing {
-        animation: slideOut 0.3s ease-out forwards;
-    }
-
-    .cms-toast-icon {
-        flex-shrink: 0;
-        width: 20px;
-        height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .cms-toast-icon svg {
-        display: block;
-        width: 20px;
-        height: 20px;
-    }
-
-    .cms-toast-content {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .cms-toast-title {
-        font-weight: 600;
-        margin: 0;
-        padding: 0;
-        line-height: 1.4;
-    }
-
-    .cms-toast-message {
-        font-size: 14px;
-        opacity: 0.9;
-        margin: 0;
-        padding: 0;
-        line-height: 1.4;
-        word-wrap: break-word;
-    }
-
-    .cms-toast-close {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background: none;
-        border: none;
-        color: #999;
-        cursor: pointer;
-        padding: 4px;
-        line-height: 1;
-        font-size: 18px;
-    }
-
-    .cms-toast-close:hover {
-        color: #fff;
-    }
-
-    /* Toast variants */
-    .cms-toast-success {
-        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-    }
-
-    .cms-toast-error {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-    }
-
-    .cms-toast-warning {
-        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-    }
-
-    .cms-toast-info {
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
     }
 
     .cms-modal-header {
@@ -1550,66 +1413,34 @@
                 setupToastSystem();
             }
 
-            // Toast Notification System
+            // Toast Notification System using SweetAlert2
             function setupToastSystem() {
                 window.showToast = function(message, type = 'info', title = null) {
-                    const container = document.getElementById('cms-toast-container');
-                    if (!container) return;
+                    // Wait for SweetAlert2 to be loaded
+                    if (typeof Swal === 'undefined') {
+                        console.warn('SweetAlert2 not loaded yet, retrying...');
+                        setTimeout(() => showToast(message, type, title), 100);
+                        return;
+                    }
 
-                    const toast = document.createElement('div');
-                    toast.className = `cms-toast cms-toast-${type}`;
-
-                    // Icons for different types
-                    const icons = {
-                        success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-                        error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-                        warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-                        info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
-                    };
-
-                    // Default titles
-                    const defaultTitles = {
-                        success: 'Success',
-                        error: 'Error',
-                        warning: 'Warning',
-                        info: 'Info'
-                    };
-
-                    const finalTitle = title || defaultTitles[type] || 'Notification';
-
-                    toast.innerHTML = `
-                        <div class="cms-toast-icon">
-                            ${icons[type] || icons.info}
-                        </div>
-                        <div class="cms-toast-content">
-                            <div class="cms-toast-title">${finalTitle}</div>
-                            <div class="cms-toast-message">${message}</div>
-                        </div>
-                        <button class="cms-toast-close">&times;</button>
-                    `;
-
-                    // Add close functionality
-                    const closeBtn = toast.querySelector('.cms-toast-close');
-                    closeBtn.addEventListener('click', function() {
-                        removeToast(toast);
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 5000,
+                        timerProgressBar: true,
+                        didOpen: (toast) => {
+                            toast.addEventListener('mouseenter', Swal.stopTimer);
+                            toast.addEventListener('mouseleave', Swal.resumeTimer);
+                        }
                     });
 
-                    container.appendChild(toast);
-
-                    // Auto remove after 5 seconds
-                    setTimeout(() => {
-                        removeToast(toast);
-                    }, 5000);
+                    Toast.fire({
+                        icon: type,
+                        title: title || message,
+                        text: title ? message : undefined
+                    });
                 };
-
-                function removeToast(toast) {
-                    if (!toast || toast.classList.contains('removing')) return;
-
-                    toast.classList.add('removing');
-                    setTimeout(() => {
-                        toast.remove();
-                    }, 300);
-                }
             }
 
             // Event Listeners
@@ -3372,3 +3203,6 @@
         });
     })();
 </script>
+
+{{-- SweetAlert2 for Toast Notifications --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
