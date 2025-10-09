@@ -96,7 +96,8 @@ class ContentController extends Controller
             'page_url' => 'required|string',
             'file_hint' => 'nullable|string',
             'translation_key' => 'nullable|string',
-            'translation_file' => 'nullable|string'
+            'translation_file' => 'nullable|string',
+            'locale' => 'nullable|string'
         ]);
 
         // Handle translation type differently
@@ -114,7 +115,7 @@ class ContentController extends Controller
             $translationRequest = new Request([
                 'key' => $validated['translation_key'],
                 'value' => $validated['content'],
-                'locale' => \App::getLocale(),
+                'locale' => $validated['locale'] ?? \App::getLocale(),
                 'file' => $validated['translation_file'] ?? null
             ]);
 
