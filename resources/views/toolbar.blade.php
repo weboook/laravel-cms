@@ -621,7 +621,6 @@
         z-index: 1000000 !important;
         margin: 0 !important;
         padding: 0 !important;
-        display: block !important;
     }
 
     .cms-modal-backdrop {
