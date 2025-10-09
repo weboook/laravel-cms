@@ -60,8 +60,9 @@ class CMSServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
 
         // Load API routes with api prefix
+        // Use 'web' middleware to access session for language detection
         Route::prefix('api')
-            ->middleware('api')
+            ->middleware('web')
             ->group(__DIR__.'/../routes/api.php');
 
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'cms');
