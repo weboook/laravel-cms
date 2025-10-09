@@ -27,6 +27,12 @@ class InjectMetaTags
 
                 // Only inject if we have meta tags to add
                 if (!empty(trim($metaTags))) {
+                    // Check if meta tags include a title tag
+                    if (strpos($metaTags, '<title>') !== false) {
+                        // Remove any existing title tag from the head section
+                        $content = preg_replace('/<title>.*?<\/title>/s', '', $content, 1);
+                    }
+
                     // Inject before </head> closing tag
                     $content = str_replace('</head>', $metaTags . "\n</head>", $content);
                     $response->setContent($content);
