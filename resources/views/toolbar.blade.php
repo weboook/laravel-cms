@@ -3033,6 +3033,9 @@
 
                 fetch(apiBaseUrl + '/media/upload', {
                     method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
                     body: formData
                 })
                 .then(response => response.json())
