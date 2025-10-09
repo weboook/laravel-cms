@@ -1393,7 +1393,7 @@
 
             // State
             let currentPage = window.location.pathname;
-            let currentLanguage = 'en';
+            let currentLanguage = '{{ app()->getLocale() }}';
             let availableLanguages = [];
             let availablePages = [];
             let templatePages = [];
