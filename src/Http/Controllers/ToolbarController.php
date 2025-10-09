@@ -338,7 +338,12 @@ class ToolbarController extends Controller
         $locales = config('app.locales', []);
 
         // Try to detect from lang directory
-        $langPath = resource_path('lang');
+        // Try Laravel 11+ path first (base_path/lang), then fallback to Laravel 10 (resources/lang)
+        $langPath = function_exists('lang_path') ? lang_path() : base_path('lang');
+        if (!File::exists($langPath)) {
+            $langPath = resource_path('lang');
+        }
+
         if (File::exists($langPath)) {
             $hasTranslationFiles = true;
 
