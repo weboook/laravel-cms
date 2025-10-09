@@ -4,8 +4,9 @@ namespace Webook\LaravelCMS\Services;
 
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\HtmlString;
+use Illuminate\Contracts\Translation\Translator;
 
-class TranslationWrapper
+class TranslationWrapper implements Translator
 {
     public $originalTranslator;
     protected $enabled = false;
@@ -43,7 +44,7 @@ class TranslationWrapper
     /**
      * Get a translation with optional CMS wrapping
      */
-    public function get($key, array $replace = [], $locale = null, $fallback = true)
+    public function get($key, array $replace = [], $locale = null)
     {
         // If no original translator, return the key
         if (!$this->originalTranslator) {
@@ -51,7 +52,7 @@ class TranslationWrapper
         }
 
         // Get the actual translation
-        $translation = $this->originalTranslator->get($key, $replace, $locale, $fallback);
+        $translation = $this->originalTranslator->get($key, $replace, $locale);
 
         // If CMS is not enabled or this is the same as the key (translation not found), return as-is
         if (!$this->enabled || $translation === $key) {
@@ -130,9 +131,9 @@ class TranslationWrapper
     /**
      * Check if translation exists
      */
-    public function has($key, $locale = null, $fallback = true)
+    public function has($key, $locale = null)
     {
-        return $this->originalTranslator->has($key, $locale, $fallback);
+        return $this->originalTranslator ? $this->originalTranslator->has($key, $locale) : false;
     }
 
     /**
