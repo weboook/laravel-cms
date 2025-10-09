@@ -57,6 +57,10 @@ class TranslationController extends Controller
             // Determine the file
             if ($validated['file']) {
                 $file = $validated['file'];
+                // If the first part of the key matches the file name, remove it
+                if (count($keyParts) > 0 && $keyParts[0] === $file) {
+                    array_shift($keyParts);
+                }
             } else {
                 // Use the first part as the file name
                 $file = array_shift($keyParts);
