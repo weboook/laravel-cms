@@ -48,7 +48,7 @@
                     <line x1="2" y1="12" x2="22" y2="12"></line>
                     <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                 </svg>
-                <span>Languages</span>
+                <span class="cms-current-language">Languages</span>
             </button>
 
             {{-- Template Selector (dynamically shown) --}}
@@ -1552,6 +1552,9 @@
                         if (data.multilingual || data.has_translation_system) {
                             langBtn.style.display = '';
                             langSeparator.style.display = '';
+
+                            // Update button text to show current language
+                            updateLanguageButtonText();
                         }
 
                         renderLanguages();
@@ -1593,10 +1596,13 @@
 
                 // Create language items using DOM methods
                 availableLanguages.forEach(lang => {
+                    // Check if this is the active language
+                    const isActive = lang.code === currentLanguage;
+
                     // Create main container
                     const langItem = document.createElement('div');
                     langItem.className = 'cms-language-item';
-                    if (lang.active) langItem.classList.add('active');
+                    if (isActive) langItem.classList.add('active');
                     langItem.dataset.lang = lang.code;
 
                     // Create inner container
@@ -1620,7 +1626,7 @@
                     langItem.appendChild(innerDiv);
 
                     // Add checkmark if active
-                    if (lang.active) {
+                    if (isActive) {
                         const checkmark = document.createElement('span');
                         checkmark.textContent = '✓';
                         langItem.appendChild(checkmark);
@@ -1637,6 +1643,22 @@
                         switchLanguage(langCode);
                     });
                 });
+            }
+
+            // Update Language Button Text
+            function updateLanguageButtonText() {
+                const langBtn = toolbar.querySelector('.cms-btn-languages .cms-current-language');
+                if (!langBtn) return;
+
+                // Find the current language info
+                const currentLang = availableLanguages.find(lang => lang.code === currentLanguage);
+                if (currentLang) {
+                    // Show the native name or code in uppercase
+                    langBtn.textContent = currentLang.native_name || currentLang.code.toUpperCase();
+                } else {
+                    // Fallback to just showing the code
+                    langBtn.textContent = currentLanguage.toUpperCase();
+                }
             }
 
             // Render Pages
@@ -1790,9 +1812,16 @@
             // Switch Language
             function switchLanguage(langCode) {
                 console.log('Switching language to:', langCode);
-                // This would typically update the locale in the session or URL
-                // For now, just close the modal
+
+                // Update current language
+                currentLanguage = langCode;
+
+                // Close the modal
                 closeModal();
+
+                // Navigate to the language switch route
+                // This will set the locale in the session and reload the page
+                window.location.href = `/language/${langCode}`;
             }
 
             // Open Modal
@@ -1814,6 +1843,8 @@
                         loadSettings();
                     } else if (modalName === 'seo') {
                         loadSeoMetadata();
+                    } else if (modalName === 'languages') {
+                        renderLanguages();
                     }
                 }
             }
