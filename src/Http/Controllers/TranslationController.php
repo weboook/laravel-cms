@@ -104,6 +104,15 @@ class TranslationController extends Controller
             // Create backup
             $this->createBackup($langPath);
 
+            // Debug logging
+            $this->logger->info('Translation update debug', [
+                'key' => $validated['key'],
+                'keyPath' => $keyPath,
+                'value' => $validated['value'],
+                'file' => $file,
+                'langPath' => $langPath
+            ]);
+
             // Update the nested key
             $translations = $this->setNestedArrayValue($translations, $keyPath, $validated['value']);
 
