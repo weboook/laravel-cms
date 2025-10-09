@@ -3221,6 +3221,8 @@
                     if (change.translation_file) {
                         requestBody.translation_file = change.translation_file;
                     }
+                    // Include current locale for translations
+                    requestBody.locale = currentLanguage;
                 }
 
                 return fetch(apiBaseUrl + '/content/save', {
