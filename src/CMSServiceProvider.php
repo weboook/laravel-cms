@@ -9,6 +9,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Webook\LaravelCMS\Http\Middleware\InjectToolbar;
 use Webook\LaravelCMS\Http\Middleware\InjectEditableMarkers;
 use Webook\LaravelCMS\Http\Middleware\InjectMetaTags;
+use Webook\LaravelCMS\Http\Middleware\WrapTranslations;
 
 class CMSServiceProvider extends ServiceProvider
 {
@@ -32,6 +33,7 @@ class CMSServiceProvider extends ServiceProvider
         // Register CMS services
         $this->app->singleton(\Webook\LaravelCMS\Services\CMSLogger::class);
         $this->app->singleton(\Webook\LaravelCMS\Services\FileUpdater::class);
+        $this->app->singleton(\Webook\LaravelCMS\Services\TranslationWrapper::class);
     }
 
     public function boot()
@@ -66,12 +68,31 @@ class CMSServiceProvider extends ServiceProvider
 
         // Register the middlewares
         $kernel = $this->app->make(Kernel::class);
+        $kernel->pushMiddleware(WrapTranslations::class);
         $kernel->pushMiddleware(InjectMetaTags::class);
         $kernel->pushMiddleware(InjectEditableMarkers::class);
         $kernel->pushMiddleware(InjectToolbar::class);
 
+        // Extend the translator to use our wrapper
+        $this->extendTranslator();
+
         // Register Blade directives for translations
         $this->registerBladeDirectives();
+    }
+
+    /**
+     * Extend Laravel's translator to support CMS wrapping
+     */
+    protected function extendTranslator()
+    {
+        $this->app->extend('translator', function ($translator, $app) {
+            $wrapper = $app->make(\Webook\LaravelCMS\Services\TranslationWrapper::class);
+
+            // Store reference to original translator in wrapper
+            $wrapper->originalTranslator = $translator;
+
+            return $wrapper;
+        });
     }
 
     /**
