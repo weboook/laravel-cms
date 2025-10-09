@@ -183,33 +183,30 @@ class TranslationController extends Controller
      */
     protected function setNestedArrayValue(array $array, array $keys, $value)
     {
+        // If no keys, return the value directly
+        if (empty($keys)) {
+            return $value;
+        }
+
+        // Navigate through the array using references
         $current = &$array;
 
-        foreach ($keys as $key) {
+        // Process all keys except the last one
+        for ($i = 0; $i < count($keys) - 1; $i++) {
+            $key = $keys[$i];
+
+            // Create nested array if it doesn't exist or isn't an array
             if (!isset($current[$key]) || !is_array($current[$key])) {
                 $current[$key] = [];
             }
+
+            // Move deeper into the array
             $current = &$current[$key];
         }
 
-        // Set the final value
-        if (empty($keys)) {
-            // If no nested keys, set at root level
-            return $value;
-        } else {
-            // Get the last key
-            $lastKey = array_pop($keys);
-            $current = &$array;
-
-            foreach ($keys as $key) {
-                if (!isset($current[$key])) {
-                    $current[$key] = [];
-                }
-                $current = &$current[$key];
-            }
-
-            $current[$lastKey] = $value;
-        }
+        // Set the final value using the last key
+        $lastKey = $keys[count($keys) - 1];
+        $current[$lastKey] = $value;
 
         return $array;
     }
