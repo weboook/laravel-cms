@@ -3107,6 +3107,8 @@
                     return;
                 }
 
+                console.log('Saving all changes:', pendingChanges.length, pendingChanges);
+
                 const saveBtn = toolbar.querySelector('.cms-btn-save');
                 if (saveBtn) {
                     saveBtn.disabled = true;
@@ -3116,8 +3118,9 @@
                 // Save each change
                 Promise.all(pendingChanges.map(change => saveContentChange(change)))
                     .then(results => {
-                        const successful = results.filter(r => r.success).length;
-                        const failed = results.filter(r => !r.success).length;
+                        console.log('Save results:', results);
+                        const successful = results.filter(r => r && r.success).length;
+                        const failed = results.filter(r => !r || !r.success).length;
 
                         if (failed > 0) {
                             showToast(`Saved ${successful} changes, ${failed} failed`, failed > 0 ? 'warning' : 'success');
@@ -3233,7 +3236,18 @@
                     },
                     body: JSON.stringify(requestBody)
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        console.error('Save failed with status:', response.status);
+                        return response.json().then(data => {
+                            console.error('Error response:', data);
+                            return { success: false, error: data.error || 'Save failed' };
+                        }).catch(() => {
+                            return { success: false, error: `HTTP ${response.status}` };
+                        });
+                    }
+                    return response.json();
+                })
                 .catch(error => {
                     console.error('Error saving content:', error);
                     return { success: false, error: error.message };
