@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Contracts\Http\Kernel;
 use Webook\LaravelCMS\Http\Middleware\InjectToolbar;
 use Webook\LaravelCMS\Http\Middleware\InjectEditableMarkers;
+use Webook\LaravelCMS\Http\Middleware\InjectMetaTags;
 
 class CMSServiceProvider extends ServiceProvider
 {
@@ -65,6 +66,7 @@ class CMSServiceProvider extends ServiceProvider
 
         // Register the middlewares
         $kernel = $this->app->make(Kernel::class);
+        $kernel->pushMiddleware(InjectMetaTags::class);
         $kernel->pushMiddleware(InjectEditableMarkers::class);
         $kernel->pushMiddleware(InjectToolbar::class);
 
