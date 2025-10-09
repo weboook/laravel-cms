@@ -106,6 +106,16 @@ class TranslationController extends Controller
             // Write back to file
             $this->writePhpArray($langPath, $translations);
 
+            // Clear Laravel's translation cache
+            if (method_exists(\Illuminate\Support\Facades\Cache::class, 'forget')) {
+                \Illuminate\Support\Facades\Cache::forget('translations');
+            }
+
+            // Clear OPcache for this file
+            if (function_exists('opcache_invalidate')) {
+                opcache_invalidate($langPath, true);
+            }
+
             // Log the change
             $this->logger->info('Translation updated', [
                 'key' => $validated['key'],
@@ -146,6 +156,16 @@ class TranslationController extends Controller
 
         // Write back to file
         File::put($filePath, json_encode($translations, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        // Clear Laravel's translation cache
+        if (method_exists(\Illuminate\Support\Facades\Cache::class, 'forget')) {
+            \Illuminate\Support\Facades\Cache::forget('translations');
+        }
+
+        // Clear OPcache for this file
+        if (function_exists('opcache_invalidate')) {
+            opcache_invalidate($filePath, true);
+        }
 
         $this->logger->info('JSON translation updated', [
             'key' => $key,
