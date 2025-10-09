@@ -65,13 +65,18 @@ class TranslationController extends Controller
             // The remaining parts form the nested key path
             $keyPath = $keyParts;
 
-            // Get the lang file path
-            $langPath = resource_path("lang/{$validated['locale']}/{$file}.php");
+            // Get the lang file path - try Laravel 11+ path first, then fallback
+            $baseLangPath = function_exists('lang_path') ? lang_path() : base_path('lang');
+            if (!File::exists($baseLangPath)) {
+                $baseLangPath = resource_path('lang');
+            }
+
+            $langPath = "{$baseLangPath}/{$validated['locale']}/{$file}.php";
 
             // Check if file exists
             if (!File::exists($langPath)) {
                 // Try JSON format
-                $jsonPath = resource_path("lang/{$validated['locale']}.json");
+                $jsonPath = "{$baseLangPath}/{$validated['locale']}.json";
                 if (File::exists($jsonPath)) {
                     return $this->updateJsonTranslation($jsonPath, $validated['key'], $validated['value']);
                 }

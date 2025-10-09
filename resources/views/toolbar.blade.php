@@ -3203,20 +3203,33 @@
                     console.warn('Could not inspect route, proceeding without file hint:', error);
                 }
 
+                // Build request body
+                const requestBody = {
+                    element_id: change.id,
+                    content: change.content || change,
+                    original_content: change.originalContent || '',
+                    type: change.type || 'text',
+                    page_url: window.location.href.split('#')[0], // Remove hash fragment
+                    file_hint: fileHint
+                };
+
+                // Add translation-specific fields if this is a translation
+                if (change.type === 'translation') {
+                    if (change.translation_key) {
+                        requestBody.translation_key = change.translation_key;
+                    }
+                    if (change.translation_file) {
+                        requestBody.translation_file = change.translation_file;
+                    }
+                }
+
                 return fetch(apiBaseUrl + '/content/save', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
                     },
-                    body: JSON.stringify({
-                        element_id: change.id,
-                        content: change.content || change,
-                        original_content: change.originalContent || '',
-                        type: change.type || 'text',
-                        page_url: window.location.href.split('#')[0], // Remove hash fragment
-                        file_hint: fileHint
-                    })
+                    body: JSON.stringify(requestBody)
                 })
                 .then(response => response.json())
                 .catch(error => {

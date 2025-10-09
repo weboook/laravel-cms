@@ -1591,8 +1591,12 @@ class InjectEditableMarkers
 
         // Save and close editor
         function saveAndCloseEditor(element, toolbar) {
-            const newContent = element.innerHTML;
             const contentId = element.getAttribute('data-cms-id');
+            const type = element.getAttribute('data-cms-type') || 'text';
+
+            // For translations, use text content only (not HTML)
+            // For other types, use innerHTML to preserve formatting
+            const newContent = (type === 'translation') ? element.textContent : element.innerHTML;
 
             // Remove contenteditable
             element.contentEditable = false;
@@ -1606,14 +1610,31 @@ class InjectEditableMarkers
             // Get original content
             const originalContent = element.getAttribute('data-cms-original') || '';
 
+            // Build event detail with all necessary attributes
+            const eventDetail = {
+                id: contentId,
+                content: newContent,
+                originalContent: originalContent,
+                type: type,
+                element: element
+            };
+
+            // If this is a translation element, include translation-specific data
+            if (type === 'translation') {
+                const translationKey = element.getAttribute('data-translation-key');
+                const translationFile = element.getAttribute('data-translation-file');
+
+                if (translationKey) {
+                    eventDetail.translation_key = translationKey;
+                }
+                if (translationFile) {
+                    eventDetail.translation_file = translationFile;
+                }
+            }
+
             // Trigger save event (to be handled by save functionality)
             const event = new CustomEvent('cms:contentChanged', {
-                detail: {
-                    id: contentId,
-                    content: newContent,
-                    originalContent: originalContent,
-                    element: element
-                }
+                detail: eventDetail
             });
             document.dispatchEvent(event);
         }
