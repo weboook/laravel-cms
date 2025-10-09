@@ -383,6 +383,9 @@ class FileUpdater
 
                     // If we found a match, update it
                     if ($foundMatch && $imgTag) {
+                        // Store original length before modification
+                        $originalImgTagLength = strlen($imgTag);
+
                         // Add data-cms-id if not present
                         if (!str_contains($imgTag, 'data-cms-id')) {
                             $imgTag = str_replace('<img', '<img data-cms-id="' . $elementId . '"', $imgTag);
@@ -424,7 +427,7 @@ class FileUpdater
                             }
                         }
 
-                        $content = substr_replace($content, $newImgTag, $imgPos, strlen($imgTag));
+                        $content = substr_replace($content, $newImgTag, $imgPos, $originalImgTagLength);
 
                         $this->logger->info('Updated image with Blade syntax preservation', [
                             'element_id' => $elementId,
