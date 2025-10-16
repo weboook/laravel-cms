@@ -428,6 +428,66 @@
             </div>
         </div>
     </div>
+
+    {{-- Translation Conversion Modal --}}
+    <div class="cms-modal cms-modal-translation-convert" data-modal="translation-convert" style="display: none;">
+        <div class="cms-modal-header">
+            <h2>Convert to Translation</h2>
+            <button class="cms-modal-close">&times;</button>
+        </div>
+        <div class="cms-modal-body">
+            <div class="cms-translation-convert-form">
+                <div class="cms-setting-group">
+                    <label class="cms-label">Original Content</label>
+                    <div class="cms-input-readonly" id="cms-translation-original" style="padding: 8px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; color: #666;">-</div>
+                </div>
+
+                <div class="cms-setting-group">
+                    <label class="cms-label">Translation Key <span style="color: #999; font-size: 0.9em;">(e.g., welcome_message, homepage.hero.title)</span></label>
+                    <input type="text" class="cms-input" id="cms-translation-key" placeholder="e.g., welcome_message">
+                </div>
+
+                <div class="cms-setting-group">
+                    <label class="cms-label">Namespace <span style="color: #999; font-size: 0.9em;">(default: messages)</span></label>
+                    <select class="cms-select" id="cms-translation-namespace">
+                        <option value="messages">messages</option>
+                        <option value="common">common</option>
+                        <option value="pages">pages</option>
+                        <option value="ui">ui</option>
+                    </select>
+                </div>
+
+                <div class="cms-setting-group">
+                    <label class="cms-label">Create for Locales</label>
+                    <div class="cms-locale-checkboxes" id="cms-translation-locales" style="display: flex; flex-wrap: wrap; gap: 12px;">
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="en" checked> English (en)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="ja"> Japanese (ja)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="zh"> Chinese (zh)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="ko"> Korean (ko)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="id"> Indonesian (id)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="th"> Thai (th)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="vi"> Vietnamese (vi)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="km"> Khmer (km)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="tl"> Filipino (tl)</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" value="ms"> Malay (ms)</label>
+                    </div>
+                </div>
+
+                <div class="cms-setting-group">
+                    <label class="cms-label">Format</label>
+                    <div style="display: flex; gap: 16px;">
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="radio" name="translation_format" value="php" checked> PHP Array</label>
+                        <label style="display: flex; align-items: center; gap: 6px;"><input type="radio" name="translation_format" value="json"> JSON</label>
+                    </div>
+                </div>
+
+                <div class="cms-form-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                    <button class="cms-btn" id="cms-cancel-translation">Cancel</button>
+                    <button class="cms-btn cms-btn-primary" id="cms-save-translation">Convert to Translation</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -1528,6 +1588,11 @@
                         loadSeoMetadata(true);
                     }
                 });
+
+                // Translation conversion handlers
+                document.addEventListener('cms:openTranslationConvert', handleOpenTranslationConvert);
+                document.getElementById('cms-save-translation')?.addEventListener('click', saveTranslationConversion);
+                document.getElementById('cms-cancel-translation')?.addEventListener('click', () => closeModal());
 
                 // Media library handlers
                 setupMediaLibrary();
@@ -3069,6 +3134,121 @@
                 .catch(error => {
                     console.error('Upload error:', error);
                     showToast('Failed to upload image', 'error');
+                })
+                .finally(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.disabled = false;
+                });
+            }
+
+            // Handle open translation convert modal
+            function handleOpenTranslationConvert(e) {
+                const detail = e.detail;
+
+                // Store the element reference and original content
+                window.CMS.currentTranslationElement = detail.element;
+                window.CMS.originalTranslationContent = detail.originalContent || detail.element.textContent;
+
+                // Populate the modal fields
+                document.getElementById('cms-translation-original').textContent = window.CMS.originalTranslationContent;
+                document.getElementById('cms-translation-key').value = '';
+                document.getElementById('cms-translation-namespace').value = 'messages';
+
+                // Reset checkboxes - check only English by default
+                const checkboxes = document.querySelectorAll('#cms-translation-locales input[type="checkbox"]');
+                checkboxes.forEach(cb => {
+                    cb.checked = cb.value === 'en';
+                });
+
+                // Reset format to PHP
+                document.querySelector('input[name="translation_format"][value="php"]').checked = true;
+
+                // Open the modal
+                openModal('translation-convert');
+            }
+
+            // Save translation conversion
+            function saveTranslationConversion() {
+                const element = window.CMS.currentTranslationElement;
+                if (!element) {
+                    showToast('No element selected for conversion', 'error');
+                    return;
+                }
+
+                const originalContent = window.CMS.originalTranslationContent;
+                const translationKey = document.getElementById('cms-translation-key').value.trim();
+                const namespace = document.getElementById('cms-translation-namespace').value;
+
+                // Get selected locales
+                const selectedLocales = Array.from(
+                    document.querySelectorAll('#cms-translation-locales input[type="checkbox"]:checked')
+                ).map(cb => cb.value);
+
+                // Get format
+                const useJson = document.querySelector('input[name="translation_format"]:checked').value === 'json';
+
+                // Validate inputs
+                if (!translationKey) {
+                    showToast('Please enter a translation key', 'warning');
+                    return;
+                }
+
+                if (selectedLocales.length === 0) {
+                    showToast('Please select at least one locale', 'warning');
+                    return;
+                }
+
+                // Get file path from element or current route
+                const filePath = element.getAttribute('data-cms-source') || element.getAttribute('data-cms-file');
+
+                if (!filePath) {
+                    showToast('Cannot determine source file path for this element', 'error');
+                    return;
+                }
+
+                // Show loading state
+                const saveBtn = document.getElementById('cms-save-translation');
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = 'Converting...';
+                saveBtn.disabled = true;
+
+                // Prepare request data
+                const requestData = {
+                    element_id: element.getAttribute('data-cms-id'),
+                    original_content: originalContent,
+                    translation_key: translationKey,
+                    file_path: filePath,
+                    locales: selectedLocales,
+                    namespace: namespace,
+                    use_json: useJson
+                };
+
+                // Call the API
+                fetch(apiBaseUrl + '/translations/convert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Successfully converted to translation: ' + data.translation_key, 'success');
+                        closeModal();
+
+                        // Reload the page after a short delay to show the changes
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showToast('Failed to convert: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Translation conversion error:', error);
+                    showToast('Failed to convert to translation', 'error');
                 })
                 .finally(() => {
                     saveBtn.textContent = originalText;

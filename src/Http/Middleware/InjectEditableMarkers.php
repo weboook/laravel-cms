@@ -1490,6 +1490,24 @@ class InjectEditableMarkers
             document.dispatchEvent(event);
         }
 
+        // Open translation convert modal
+        function openTranslationConvertModal(element) {
+            const originalContent = element.textContent || element.innerHTML;
+
+            // Store reference to current element
+            window.CMS = window.CMS || {};
+            window.CMS.currentTranslationElement = element;
+
+            // Dispatch event to open modal
+            const event = new CustomEvent('cms:openTranslationConvert', {
+                detail: {
+                    originalContent: originalContent,
+                    element: element
+                }
+            });
+            document.dispatchEvent(event);
+        }
+
         // Create inline editor
         function createInlineEditor(element) {
             const type = element.getAttribute('data-cms-type');
@@ -1566,7 +1584,8 @@ class InjectEditableMarkers
                 { separator: true },
                 { command: 'insertOrderedList', icon: '1.', title: 'Ordered List' },
                 { command: 'insertUnorderedList', icon: '•', title: 'Unordered List' },
-                { separator: true }
+                { separator: true },
+                { command: 'convertTranslation', icon: '🌐', title: 'Convert to Translation', custom: true }
             ];
 
             // Add format buttons
@@ -1582,6 +1601,14 @@ class InjectEditableMarkers
                     button.onclick = (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+
+                        // Handle custom commands
+                        if (btn.custom) {
+                            if (btn.command === 'convertTranslation') {
+                                openTranslationConvertModal(element);
+                                return;
+                            }
+                        }
 
                         if (btn.needsInput && btn.command === 'createLink') {
                             const url = prompt('Enter URL:');
