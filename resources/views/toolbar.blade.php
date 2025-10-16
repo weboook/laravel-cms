@@ -3080,6 +3080,19 @@
             function handleContentChanged(e) {
                 const change = e.detail;
 
+                // Extract source metadata from element if available
+                if (change.element) {
+                    const sourceFile = change.element.getAttribute('data-cms-source');
+                    const sourceLine = change.element.getAttribute('data-cms-line');
+
+                    if (sourceFile) {
+                        change.source_file = sourceFile;
+                    }
+                    if (sourceLine) {
+                        change.source_line = sourceLine;
+                    }
+                }
+
                 // Add to pending changes
                 const existingIndex = pendingChanges.findIndex(c => c.id === change.id);
                 if (existingIndex >= 0) {
@@ -3185,28 +3198,34 @@
 
             // Save single content change
             async function saveContentChange(change) {
-                // First, inspect the route to get the file_hint
-                let fileHint = null;
+                // Check if we have source metadata from the element
+                let fileHint = change.source_file || null;
+                let lineHint = change.source_line || null;
 
-                try {
-                    const inspectResponse = await fetch(apiBaseUrl + '/route/inspect', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                        },
-                        body: JSON.stringify({
-                            url: window.location.href.split('#')[0]
-                        })
-                    });
+                // If no source metadata, fall back to route inspection
+                if (!fileHint) {
+                    try {
+                        const inspectResponse = await fetch(apiBaseUrl + '/route/inspect', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                            },
+                            body: JSON.stringify({
+                                url: window.location.href.split('#')[0]
+                            })
+                        });
 
-                    const inspectData = await inspectResponse.json();
-                    if (inspectData.success && inspectData.file_path) {
-                        fileHint = inspectData.file_path;
-                        console.log('File hint resolved:', fileHint);
+                        const inspectData = await inspectResponse.json();
+                        if (inspectData.success && inspectData.file_path) {
+                            fileHint = inspectData.file_path;
+                            console.log('File hint resolved via route inspection:', fileHint);
+                        }
+                    } catch (error) {
+                        console.warn('Could not inspect route, proceeding without file hint:', error);
                     }
-                } catch (error) {
-                    console.warn('Could not inspect route, proceeding without file hint:', error);
+                } else {
+                    console.log('Using source mapping metadata:', fileHint, lineHint);
                 }
 
                 // Build request body
@@ -3218,6 +3237,11 @@
                     page_url: window.location.href.split('#')[0], // Remove hash fragment
                     file_hint: fileHint
                 };
+
+                // Add line hint if available
+                if (lineHint) {
+                    requestBody.line_hint = lineHint;
+                }
 
                 // Add translation-specific fields if this is a translation
                 if (change.type === 'translation') {

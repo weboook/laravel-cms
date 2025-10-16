@@ -80,4 +80,9 @@ return [
             // 'api',
         ],
     ],
+
+    'features' => [
+        // Enable component source mapping for precise component/partial editing
+        'component_source_mapping' => env('CMS_COMPONENT_SOURCE_MAPPING', false),
+    ],
 ];

@@ -257,6 +257,17 @@ class FileUpdater
      */
     protected function updateBladeContent($content, $elementId, $newContent, $originalContent = null)
     {
+        // Check if this is a component file with source markers
+        $hasSourceMarkers = strpos($content, '@cmsSourceStart') !== false ||
+                           strpos($content, '@cmsSourceEnd') !== false;
+
+        if ($hasSourceMarkers) {
+            $this->logger->info('Updating component content with source markers', [
+                'element_id' => $elementId,
+                'has_markers' => true
+            ]);
+        }
+
         // Handle image updates specially
         if (is_array($newContent) && isset($newContent['type']) && $newContent['type'] === 'image') {
             // For images, we need to find and replace the src attribute
@@ -696,6 +707,175 @@ class FileUpdater
         }
 
         return array_reverse($backups);
+    }
+
+    /**
+     * Convert a hard-coded string to a translation directive
+     *
+     * @param string $filePath Path to the Blade file
+     * @param string $elementId Element ID for targeting
+     * @param string $originalContent The original hard-coded string
+     * @param string $translationKey The translation key to use
+     * @return array Result with success status
+     */
+    public function convertToTranslationDirective($filePath, $elementId, $originalContent, $translationKey)
+    {
+        try {
+            if (!File::exists($filePath)) {
+                throw new Exception("File not found: {$filePath}");
+            }
+
+            // Create backup
+            $backupFile = $this->createBackup($filePath);
+
+            // Read file content
+            $content = File::get($filePath);
+
+            // Find the original content and replace it with translation directive
+            // We'll use the @lang() directive for Blade templates
+            $translationDirective = "@lang('{$translationKey}')";
+
+            // Try exact match first
+            if (strpos($content, $originalContent) !== false) {
+                // Count occurrences to warn if there are multiple
+                $occurrences = substr_count($content, $originalContent);
+
+                if ($occurrences > 1) {
+                    $this->logger->warning('Multiple occurrences of content found, replacing first', [
+                        'file' => $filePath,
+                        'content' => substr($originalContent, 0, 50),
+                        'occurrences' => $occurrences
+                    ]);
+                }
+
+                // Replace first occurrence
+                $pos = strpos($content, $originalContent);
+                $updatedContent = substr_replace($content, $translationDirective, $pos, strlen($originalContent));
+
+                // Write updated content
+                File::put($filePath, $updatedContent);
+
+                // Clear view cache
+                if (str_ends_with($filePath, '.blade.php')) {
+                    $this->clearViewCache($filePath);
+                }
+
+                $this->logger->info('Converted string to translation directive', [
+                    'file' => $filePath,
+                    'original' => substr($originalContent, 0, 50),
+                    'translation_key' => $translationKey,
+                    'backup' => $backupFile
+                ]);
+
+                return [
+                    'success' => true,
+                    'backup' => $backupFile,
+                    'message' => 'Successfully converted to translation'
+                ];
+            }
+
+            // Try with HTML entity decoding
+            $decodedOriginal = html_entity_decode($originalContent);
+            if (strpos($content, $decodedOriginal) !== false) {
+                $pos = strpos($content, $decodedOriginal);
+                $updatedContent = substr_replace($content, $translationDirective, $pos, strlen($decodedOriginal));
+
+                File::put($filePath, $updatedContent);
+
+                if (str_ends_with($filePath, '.blade.php')) {
+                    $this->clearViewCache($filePath);
+                }
+
+                $this->logger->info('Converted string to translation directive (decoded)', [
+                    'file' => $filePath,
+                    'translation_key' => $translationKey
+                ]);
+
+                return [
+                    'success' => true,
+                    'backup' => $backupFile,
+                    'message' => 'Successfully converted to translation'
+                ];
+            }
+
+            // If not found, try to find it within HTML tags
+            // Pattern: >original content<
+            $pattern = '/(>)(' . preg_quote($originalContent, '/') . ')(<)/';
+            if (preg_match($pattern, $content)) {
+                $updatedContent = preg_replace($pattern, '$1' . $translationDirective . '$3', $content, 1);
+
+                File::put($filePath, $updatedContent);
+
+                if (str_ends_with($filePath, '.blade.php')) {
+                    $this->clearViewCache($filePath);
+                }
+
+                $this->logger->info('Converted string to translation directive (tag pattern)', [
+                    'file' => $filePath,
+                    'translation_key' => $translationKey
+                ]);
+
+                return [
+                    'success' => true,
+                    'backup' => $backupFile,
+                    'message' => 'Successfully converted to translation'
+                ];
+            }
+
+            // Content not found
+            $this->logger->warning('Could not find content to convert', [
+                'file' => $filePath,
+                'element_id' => $elementId,
+                'original_content' => substr($originalContent, 0, 50)
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'Could not locate the original content in the file'
+            ];
+
+        } catch (Exception $e) {
+            $this->logger->error('Failed to convert to translation directive', [
+                'file' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Check if content is within source markers (for component files)
+     *
+     * @param string $content
+     * @param string $originalContent
+     * @return bool
+     */
+    protected function isWithinSourceMarkers($content, $originalContent)
+    {
+        // If the file has source markers and the original content is between them
+        if (preg_match('/@cmsSourceStart.*?' . preg_quote($originalContent, '/') . '.*?@cmsSourceEnd/s', $content)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Extract content within source markers
+     *
+     * @param string $content
+     * @return string|null
+     */
+    protected function extractSourceMarkerContent($content)
+    {
+        // Extract content between @cmsSourceStart and @cmsSourceEnd
+        if (preg_match('/@cmsSourceStart(.*?)@cmsSourceEnd/s', $content, $matches)) {
+            return trim($matches[1]);
+        }
+        return null;
     }
 
     /**

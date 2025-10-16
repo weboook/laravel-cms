@@ -325,4 +325,224 @@ class TranslationController extends Controller
             'locale' => $validated['locale']
         ]);
     }
+
+    /**
+     * Convert a hard-coded string to a translation
+     *
+     * This creates a new translation key in the specified locales
+     * and updates the source file to use @lang() or __() directive
+     */
+    public function convertToTranslation(Request $request)
+    {
+        $validated = $request->validate([
+            'element_id' => 'required|string',
+            'original_content' => 'required|string',
+            'translation_key' => 'required|string',
+            'file_path' => 'required|string',
+            'locales' => 'required|array',
+            'locales.*' => 'string',
+            'namespace' => 'nullable|string',  // e.g., 'messages', 'common'
+            'use_json' => 'boolean'  // Use JSON translations instead of PHP arrays
+        ]);
+
+        try {
+            $filePath = base_path($validated['file_path']);
+
+            // Security check - ensure file is within project
+            if (!str_starts_with(realpath($filePath), realpath(base_path()))) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Invalid file path'
+                ], 403);
+            }
+
+            // Validate that the file exists
+            if (!File::exists($filePath)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Source file not found'
+                ], 404);
+            }
+
+            // Parse the translation key
+            $namespace = $validated['namespace'] ?? 'messages';
+            $fullKey = $namespace . '.' . $validated['translation_key'];
+            $useJson = $validated['use_json'] ?? false;
+
+            // Create translation entries in all specified locales
+            $createdTranslations = [];
+            foreach ($validated['locales'] as $locale) {
+                $result = $this->createTranslationEntry(
+                    $fullKey,
+                    $validated['original_content'],
+                    $locale,
+                    $namespace,
+                    $useJson
+                );
+
+                if ($result['success']) {
+                    $createdTranslations[] = [
+                        'locale' => $locale,
+                        'file' => $result['file']
+                    ];
+                } else {
+                    // Log warning but continue with other locales
+                    $this->logger->warning('Failed to create translation for locale', [
+                        'locale' => $locale,
+                        'key' => $fullKey,
+                        'error' => $result['error'] ?? 'Unknown error'
+                    ]);
+                }
+            }
+
+            // Update the source Blade file to use translation directive
+            $fileUpdater = app(\Webook\LaravelCMS\Services\FileUpdater::class);
+            $updateResult = $fileUpdater->convertToTranslationDirective(
+                $filePath,
+                $validated['element_id'],
+                $validated['original_content'],
+                $fullKey
+            );
+
+            if (!$updateResult['success']) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to update source file: ' . ($updateResult['error'] ?? 'Unknown error')
+                ], 500);
+            }
+
+            $this->logger->info('Converted string to translation', [
+                'key' => $fullKey,
+                'source_file' => $validated['file_path'],
+                'locales' => $validated['locales'],
+                'created_files' => array_column($createdTranslations, 'file')
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Successfully converted to translation',
+                'translation_key' => $fullKey,
+                'created_translations' => $createdTranslations,
+                'updated_file' => $validated['file_path']
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to convert to translation', [
+                'error' => $e->getMessage(),
+                'file' => $validated['file_path'] ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create a translation entry in the specified locale
+     *
+     * @param string $key Full translation key (e.g., 'messages.welcome')
+     * @param string $value The translation value
+     * @param string $locale The locale code
+     * @param string $namespace The namespace/file (e.g., 'messages')
+     * @param bool $useJson Whether to use JSON format
+     * @return array Result array with success status
+     */
+    protected function createTranslationEntry($key, $value, $locale, $namespace, $useJson = false)
+    {
+        try {
+            $baseLangPath = function_exists('lang_path') ? lang_path() : base_path('lang');
+            if (!File::exists($baseLangPath)) {
+                $baseLangPath = resource_path('lang');
+            }
+
+            if ($useJson) {
+                // Use JSON translation format
+                $jsonPath = "{$baseLangPath}/{$locale}.json";
+
+                // Create locale JSON file if it doesn't exist
+                if (!File::exists($jsonPath)) {
+                    File::put($jsonPath, json_encode([], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                }
+
+                // Load existing translations
+                $translations = json_decode(File::get($jsonPath), true) ?: [];
+
+                // Add new translation
+                $translations[$key] = $value;
+
+                // Sort by key for consistency
+                ksort($translations);
+
+                // Write back
+                File::put($jsonPath, json_encode($translations, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+                $this->logger->info('Created JSON translation entry', [
+                    'key' => $key,
+                    'locale' => $locale,
+                    'file' => $jsonPath
+                ]);
+
+                return [
+                    'success' => true,
+                    'file' => $jsonPath
+                ];
+            } else {
+                // Use PHP array format
+                $localeDir = "{$baseLangPath}/{$locale}";
+                $filePath = "{$localeDir}/{$namespace}.php";
+
+                // Create locale directory if it doesn't exist
+                if (!File::exists($localeDir)) {
+                    File::makeDirectory($localeDir, 0755, true);
+                }
+
+                // Create or load translation file
+                if (File::exists($filePath)) {
+                    $translations = include $filePath;
+                    if (!is_array($translations)) {
+                        $translations = [];
+                    }
+                } else {
+                    $translations = [];
+                }
+
+                // Parse nested key (e.g., 'messages.welcome.title' -> ['welcome', 'title'])
+                $keyParts = explode('.', $key);
+                // Remove namespace if it matches
+                if (count($keyParts) > 0 && $keyParts[0] === $namespace) {
+                    array_shift($keyParts);
+                }
+
+                // Add the translation
+                $translations = $this->setNestedArrayValue($translations, $keyParts, $value);
+
+                // Write to file
+                $this->writePhpArray($filePath, $translations);
+
+                $this->logger->info('Created PHP translation entry', [
+                    'key' => $key,
+                    'locale' => $locale,
+                    'file' => $filePath
+                ]);
+
+                return [
+                    'success' => true,
+                    'file' => $filePath
+                ];
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create translation entry', [
+                'key' => $key,
+                'locale' => $locale,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
 }

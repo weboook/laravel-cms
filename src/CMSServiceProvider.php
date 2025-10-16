@@ -34,6 +34,7 @@ class CMSServiceProvider extends ServiceProvider
         $this->app->singleton(\Webook\LaravelCMS\Services\CMSLogger::class);
         $this->app->singleton(\Webook\LaravelCMS\Services\FileUpdater::class);
         $this->app->singleton(\Webook\LaravelCMS\Services\TranslationWrapper::class);
+        $this->app->singleton(\Webook\LaravelCMS\Services\BladeSourceTracker::class);
     }
 
     public function boot()
@@ -79,6 +80,11 @@ class CMSServiceProvider extends ServiceProvider
 
         // Register Blade directives for translations
         $this->registerBladeDirectives();
+
+        // Register Blade source tracking if feature is enabled
+        if (config('cms.features.component_source_mapping')) {
+            $this->app->make(\Webook\LaravelCMS\Services\BladeSourceTracker::class)->register();
+        }
     }
 
     /**

@@ -41,6 +41,7 @@ Route::prefix('cms')->group(function () {
     Route::get('/translations/page', [TranslationController::class, 'getPageTranslations']);
     Route::get('/translations/get', [TranslationController::class, 'getTranslation']);
     Route::post('/translations/update', [TranslationController::class, 'updateTranslation']);
+    Route::post('/translations/convert', [TranslationController::class, 'convertToTranslation']);
 
     // Metadata routes
     Route::get('/metadata', [MetadataController::class, 'getMetadata']);

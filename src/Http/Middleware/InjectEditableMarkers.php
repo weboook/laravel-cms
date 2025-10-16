@@ -64,6 +64,14 @@ class InjectEditableMarkers
 
     protected function injectMarkers($html)
     {
+        // Extract source markers if component source mapping is enabled
+        $sourceMap = [];
+        if (config('cms.features.component_source_mapping')) {
+            $sourceMap = $this->extractSourceMapping($html);
+            // Remove source markers from HTML for processing
+            $html = app(\Webook\LaravelCMS\Services\BladeSourceTracker::class)->removeSourceMarkers($html);
+        }
+
         // Only inject permanent CMS IDs if elements are missing them
         if ($this->needsCmsIdInjection($html)) {
             $html = $this->injectPermanentCmsIds($html);
@@ -149,6 +157,11 @@ class InjectEditableMarkers
                 $element->setAttribute('data-cms-type', $this->getContentType($element));
                 $element->setAttribute('data-cms-id', $cmsId);
                 $element->setAttribute('data-cms-original', trim($element->textContent));
+
+                // Add source mapping attributes if available
+                if (!empty($sourceMap) && config('cms.features.component_source_mapping')) {
+                    $this->addSourceAttributes($element, $sourceMap, $dom);
+                }
             }
         }
 
@@ -871,6 +884,51 @@ class InjectEditableMarkers
         } catch (\Exception $e) {
             // Could not determine current view
             return null;
+        }
+    }
+
+    /**
+     * Extract source mapping from HTML comment markers
+     *
+     * @param string $html
+     * @return array
+     */
+    protected function extractSourceMapping($html)
+    {
+        $sourceTracker = app(\Webook\LaravelCMS\Services\BladeSourceTracker::class);
+        return $sourceTracker->extractSourceMarkers($html);
+    }
+
+    /**
+     * Add source attributes to an element based on its position in the document
+     *
+     * @param \DOMElement $element
+     * @param array $sourceMap
+     * @param \DOMDocument $dom
+     */
+    protected function addSourceAttributes($element, $sourceMap, $dom)
+    {
+        // Get the element's position in the original HTML
+        // This is approximate since we're working with DOM after parsing
+        $elementHtml = $dom->saveHTML($element);
+        $fullHtml = $dom->saveHTML();
+
+        // Find which source block this element belongs to
+        foreach ($sourceMap as $marker) {
+            // Check if element is within this source block's range
+            // This is a simplified approach - in production you might want more sophisticated matching
+            if (!empty($marker['source_path'])) {
+                $sourcePath = $marker['source_path'];
+
+                // Validate the source path
+                $sourceTracker = app(\Webook\LaravelCMS\Services\BladeSourceTracker::class);
+                if ($sourceTracker->isValidSourcePath($sourcePath)) {
+                    $element->setAttribute('data-cms-source', $sourcePath);
+                    // Note: Line number tracking would require more sophisticated parsing
+                    // For now, we just track the file. Line numbers can be added in future iterations.
+                    break;
+                }
+            }
         }
     }
 

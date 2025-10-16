@@ -95,6 +95,7 @@ class ContentController extends Controller
             'type' => 'string|in:text,html,link,heading,image,translation',
             'page_url' => 'required|string',
             'file_hint' => 'nullable|string',
+            'line_hint' => 'nullable|integer',
             'translation_key' => 'nullable|string',
             'translation_file' => 'nullable|string',
             'locale' => 'nullable|string'
@@ -130,6 +131,21 @@ class ContentController extends Controller
                 'success' => false,
                 'error' => 'Could not determine file location'
             ], 400);
+        }
+
+        // Additional security validation for source-mapped paths
+        if (!empty($validated['file_hint']) && config('cms.features.component_source_mapping')) {
+            if (!$this->validateSourcePath($validated['file_hint'])) {
+                $this->logger->warning('Invalid source path provided', [
+                    'file_hint' => $validated['file_hint'],
+                    'element_id' => $validated['element_id']
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Invalid source file path'
+                ], 403);
+            }
         }
 
         // Handle link and image content specially
@@ -319,5 +335,18 @@ class ContentController extends Controller
         } else {
             return 'text';
         }
+    }
+
+    /**
+     * Validate source path from component source mapping
+     *
+     * @param string $path
+     * @return bool
+     */
+    protected function validateSourcePath($path)
+    {
+        // Use the BladeSourceTracker validation method for consistency
+        $sourceTracker = app(\Webook\LaravelCMS\Services\BladeSourceTracker::class);
+        return $sourceTracker->isValidSourcePath($path);
     }
 }
