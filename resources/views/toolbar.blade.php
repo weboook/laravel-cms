@@ -101,8 +101,16 @@
             <button class="cms-modal-close">&times;</button>
         </div>
         <div class="cms-modal-body">
-            <div class="cms-pages-search">
-                <input type="text" class="cms-input" placeholder="Search pages..." id="cms-pages-search">
+            <div class="cms-pages-controls">
+                <div class="cms-pages-search">
+                    <input type="text" class="cms-input" placeholder="Search pages..." id="cms-pages-search">
+                </div>
+                <div class="cms-pages-toggle">
+                    <label class="cms-checkbox-label">
+                        <input type="checkbox" id="cms-show-hidden-pages">
+                        <span>Show hidden pages</span>
+                    </label>
+                </div>
             </div>
             <div class="cms-pages-list" id="cms-pages-list">
                 <div class="cms-loading">Loading pages...</div>
@@ -753,8 +761,34 @@
     }
 
     /* Pages Modal */
-    .cms-pages-search {
+    .cms-pages-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
         margin-bottom: 20px;
+    }
+
+    .cms-pages-search {
+        flex: 1;
+    }
+
+    .cms-pages-toggle {
+        display: flex;
+        align-items: center;
+    }
+
+    .cms-checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #e0e0e0;
+        user-select: none;
+    }
+
+    .cms-checkbox-label input[type="checkbox"] {
+        cursor: pointer;
     }
 
     .cms-input {
@@ -799,8 +833,13 @@
         padding: 12px;
         background: #2a2a2a;
         border-radius: 4px;
-        cursor: pointer;
         transition: all 0.2s;
+        position: relative;
+    }
+
+    .cms-page-item-content {
+        flex: 1;
+        cursor: pointer;
     }
 
     .cms-page-item:hover {
@@ -809,6 +848,10 @@
 
     .cms-page-item.active {
         background: #0066ff;
+    }
+
+    .cms-page-item.hidden {
+        opacity: 0.5;
     }
 
     .cms-page-item-title {
@@ -823,6 +866,42 @@
 
     .cms-page-item.template {
         border-left: 3px solid #f0b90b;
+    }
+
+    .cms-page-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 12px;
+    }
+
+    .cms-page-eye-btn {
+        background: transparent;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        width: 32px;
+        height: 32px;
+    }
+
+    .cms-page-eye-btn:hover {
+        background: #404040;
+        color: #e0e0e0;
+    }
+
+    .cms-page-eye-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .cms-page-item.hidden .cms-page-eye-btn {
+        color: #666;
     }
 
     /* Languages Modal */
@@ -1569,6 +1648,11 @@
                 // Pages search
                 document.getElementById('cms-pages-search')?.addEventListener('input', filterPages);
 
+                // Show hidden pages toggle
+                document.getElementById('cms-show-hidden-pages')?.addEventListener('change', function() {
+                    renderPages();
+                });
+
                 // Link editor handlers
                 document.addEventListener('cms:openLinkEditor', handleOpenLinkEditor);
                 document.getElementById('cms-save-link')?.addEventListener('click', saveLinkChanges);
@@ -1638,12 +1722,68 @@
                         templatePages = data.templates || [];
                         currentPage = data.current_path;
 
-                        renderPages();
-                        checkForTemplatePages();
+                        // Load hidden pages setting
+                        loadHiddenPages().then(() => {
+                            renderPages();
+                            checkForTemplatePages();
+                        });
                     })
                     .catch(error => {
                         console.error('Failed to load pages:', error);
                     });
+            }
+
+            // Load hidden pages from settings
+            function loadHiddenPages() {
+                return fetch(apiBaseUrl + '/settings')
+                    .then(response => response.json())
+                    .then(data => {
+                        window.CMS.hiddenPages = data.hidden_pages || [];
+                    })
+                    .catch(error => {
+                        console.error('Failed to load hidden pages:', error);
+                        window.CMS.hiddenPages = [];
+                    });
+            }
+
+            // Toggle page visibility
+            function togglePageVisibility(pagePath) {
+                const hiddenPages = window.CMS.hiddenPages || [];
+                const index = hiddenPages.indexOf(pagePath);
+
+                if (index > -1) {
+                    // Show page
+                    hiddenPages.splice(index, 1);
+                } else {
+                    // Hide page
+                    hiddenPages.push(pagePath);
+                }
+
+                window.CMS.hiddenPages = hiddenPages;
+
+                // Save to settings
+                saveHiddenPages(hiddenPages).then(() => {
+                    // Re-render pages
+                    renderPages();
+                    showToast('Page visibility updated', 'success');
+                }).catch(error => {
+                    console.error('Failed to save hidden pages:', error);
+                    showToast('Failed to update page visibility', 'error');
+                });
+            }
+
+            // Save hidden pages to settings
+            function saveHiddenPages(hiddenPages) {
+                return fetch(apiBaseUrl + '/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify({
+                        hidden_pages: hiddenPages
+                    })
+                }).then(response => response.json());
             }
 
             // Render Languages
@@ -1741,10 +1881,21 @@
                 // Clear the list first
                 list.innerHTML = '';
 
+                // Get show hidden pages checkbox state
+                const showHidden = document.getElementById('cms-show-hidden-pages')?.checked ?? false;
+
                 // Create page items using DOM methods for proper structure
                 allPages.forEach(page => {
                     // Filter out storage routes
                     if (page.path && page.path.includes('/storage/')) {
+                        return;
+                    }
+
+                    // Check if page is hidden
+                    const isHidden = window.CMS.hiddenPages?.includes(page.path) ?? false;
+
+                    // Skip hidden pages if not showing them
+                    if (isHidden && !showHidden) {
                         return;
                     }
 
@@ -1753,11 +1904,13 @@
                     pageItem.className = 'cms-page-item';
                     if (page.is_template) pageItem.classList.add('template');
                     if (page.path === currentPage) pageItem.classList.add('active');
+                    if (isHidden) pageItem.classList.add('hidden');
                     pageItem.dataset.path = page.path;
                     pageItem.dataset.template = page.is_template;
 
-                    // Create inner container
-                    const innerDiv = document.createElement('div');
+                    // Create content container (for click handling)
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'cms-page-item-content';
 
                     // Create title element
                     const titleDiv = document.createElement('div');
@@ -1769,29 +1922,50 @@
                     pathDiv.className = 'cms-page-item-path';
                     pathDiv.textContent = page.path;
 
-                    // Append title and path to inner container
-                    innerDiv.appendChild(titleDiv);
-                    innerDiv.appendChild(pathDiv);
+                    // Append title and path to content container
+                    contentDiv.appendChild(titleDiv);
+                    contentDiv.appendChild(pathDiv);
 
-                    // Append inner container to page item
-                    pageItem.appendChild(innerDiv);
+                    // Create actions container
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'cms-page-item-actions';
 
                     // Add template badge if needed
                     if (page.is_template) {
                         const badge = document.createElement('span');
                         badge.textContent = 'Template';
-                        pageItem.appendChild(badge);
+                        actionsDiv.appendChild(badge);
                     }
+
+                    // Create eye icon button
+                    const eyeBtn = document.createElement('button');
+                    eyeBtn.className = 'cms-page-eye-btn';
+                    eyeBtn.title = isHidden ? 'Show page' : 'Hide page';
+                    eyeBtn.innerHTML = isHidden ?
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle><line x1="3" y1="3" x2="21" y2="21"></line></svg>' :
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+
+                    eyeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        togglePageVisibility(page.path);
+                    });
+
+                    actionsDiv.appendChild(eyeBtn);
+
+                    // Append content and actions to page item
+                    pageItem.appendChild(contentDiv);
+                    pageItem.appendChild(actionsDiv);
 
                     // Append to list
                     list.appendChild(pageItem);
                 });
 
-                // Add click handlers
-                list.querySelectorAll('.cms-page-item').forEach(item => {
-                    item.addEventListener('click', function() {
-                        const path = this.dataset.path;
-                        const isTemplate = this.dataset.template === 'true';
+                // Add click handlers to content divs
+                list.querySelectorAll('.cms-page-item-content').forEach(content => {
+                    content.addEventListener('click', function() {
+                        const item = this.closest('.cms-page-item');
+                        const path = item.dataset.path;
+                        const isTemplate = item.dataset.template === 'true';
 
                         if (isTemplate) {
                             showTemplateSelector(path);

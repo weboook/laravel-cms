@@ -59,6 +59,11 @@ class SettingsController
                 ];
             }
 
+            // Update hidden pages setting
+            if ($request->has('hidden_pages')) {
+                $settings['hidden_pages'] = $request->input('hidden_pages', []);
+            }
+
             $this->saveSettings($settings);
 
             // Clear any cached views
