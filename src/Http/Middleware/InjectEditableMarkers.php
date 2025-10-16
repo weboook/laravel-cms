@@ -89,29 +89,46 @@ class InjectEditableMarkers
             $elements = $this->querySelectorAll($xpath, $selector);
 
             foreach ($elements as $element) {
+                $debugInfo = [
+                    'selector' => $selector,
+                    'tag' => $element->tagName,
+                    'text' => substr(trim($element->textContent), 0, 50),
+                    'class' => $element->getAttribute('class')
+                ];
+
                 // Skip if already marked
                 if ($element->hasAttribute('data-cms-editable') ||
                     $element->hasAttribute('data-cms-component')) {
+                    $debugInfo['skip_reason'] = 'already_marked';
+                    \Log::debug('CMS Skip', $debugInfo);
                     continue;
                 }
 
                 // Skip toolbar elements and CMS injected elements
                 if ($this->isToolbarElement($element) || $this->isCMSInjectedElement($element)) {
+                    $debugInfo['skip_reason'] = 'toolbar_or_injected';
+                    \Log::debug('CMS Skip', $debugInfo);
                     continue;
                 }
 
                 // Skip dropdown elements
                 if ($this->isDropdownElement($element)) {
+                    $debugInfo['skip_reason'] = 'dropdown';
+                    \Log::debug('CMS Skip', $debugInfo);
                     continue;
                 }
 
                 // Skip elements in header or footer
                 if ($this->isInHeaderOrFooter($element)) {
+                    $debugInfo['skip_reason'] = 'header_or_footer';
+                    \Log::debug('CMS Skip', $debugInfo);
                     continue;
                 }
 
                 // Check if it's database content
                 if ($this->isDatabaseContent($element)) {
+                    $debugInfo['skip_reason'] = 'database_content';
+                    \Log::debug('CMS Skip', $debugInfo);
                     // Mark as component with appropriate message
                     $element->setAttribute('data-cms-component', 'true');
                     $element->setAttribute('data-cms-type', 'database');
@@ -157,6 +174,10 @@ class InjectEditableMarkers
                 $element->setAttribute('data-cms-type', $this->getContentType($element));
                 $element->setAttribute('data-cms-id', $cmsId);
                 $element->setAttribute('data-cms-original', trim($element->textContent));
+
+                $debugInfo['marked_as'] = 'editable';
+                $debugInfo['cms_id'] = $cmsId;
+                \Log::debug('CMS Marked', $debugInfo);
 
                 // Add source mapping attributes if available
                 if (!empty($sourceMap) && config('cms.features.component_source_mapping')) {
