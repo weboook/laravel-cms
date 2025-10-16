@@ -181,8 +181,44 @@ class ToolbarController extends Controller
             foreach ($routes as $route) {
                 $routeUri = trim($route->uri(), '/');
 
-                // Check for exact match
+                // Check for exact match OR parametric match
+                $isMatch = false;
+
+                // Exact match
                 if ($routeUri === $path || ($path === '' && $routeUri === '/')) {
+                    $isMatch = true;
+                }
+
+                // Parametric match (e.g., {locale}/about matches en/about)
+                if (!$isMatch && str_contains($routeUri, '{')) {
+                    $pattern = preg_replace('/\{[^\}]+\}/', '([^/]+)', $routeUri);
+                    $pattern = '/^' . str_replace('/', '\\/', $pattern) . '$/';
+                    if (preg_match($pattern, $path)) {
+                        $isMatch = true;
+                    }
+                }
+
+                if ($isMatch) {
+                    $action = $route->getAction();
+
+                    // Handle Livewire components
+                    if (isset($action['controller']) && str_contains($action['controller'], 'Livewire')) {
+                        $livewireClass = is_string($action['controller']) ?
+                            explode('@', $action['controller'])[0] : $action['controller'];
+
+                        $viewPath = $this->getLivewireViewPath($livewireClass);
+                        if ($viewPath) {
+                            $relativePath = str_replace(base_path() . '/', '', $viewPath);
+                            return response()->json([
+                                'success' => true,
+                                'file_path' => $relativePath,
+                                'route_uri' => $routeUri,
+                                'route_name' => $route->getName(),
+                                'is_livewire' => true
+                            ]);
+                        }
+                    }
+
                     $action = $route->getAction();
 
                     // Check if it's a Route::view()
@@ -259,6 +295,42 @@ class ToolbarController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Get Livewire component view path
+     */
+    protected function getLivewireViewPath($class)
+    {
+        try {
+            if (!class_exists($class)) {
+                return null;
+            }
+
+            // Instantiate the Livewire component
+            $component = app($class);
+
+            // Get the view name from the render method
+            if (method_exists($component, 'render')) {
+                $view = $component->render();
+                if ($view && method_exists($view, 'name')) {
+                    $viewName = $view->name();
+                    return $this->viewNameToFilePath($viewName);
+                }
+            }
+
+            // Fallback: Try to guess the view path from class name
+            // App\Livewire\Public\AboutPage -> livewire.public.about-page
+            $classPath = str_replace('App\\Livewire\\', '', $class);
+            $classPath = str_replace('\\', '.', $classPath);
+            $classPath = 'livewire.' . strtolower($classPath);
+            $classPath = preg_replace('/([a-z])([A-Z])/', '$1-$2', $classPath);
+            $classPath = strtolower($classPath);
+
+            return $this->viewNameToFilePath($classPath);
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     /**
