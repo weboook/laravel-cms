@@ -531,23 +531,34 @@ class InjectEditableMarkers
 
         // Check for templating engine markers that might have been rendered
         // Look for consistent patterns that indicate template loops
+        // IMPORTANT: Be very conservative here - only flag as database content if there's strong evidence
         if ($element->parentNode && $element->parentNode->childNodes->length > 1) {
             $firstChild = null;
             $hasIdenticalStructure = true;
             $structureCount = 0;
+            $hasIdenticalClasses = true;
+            $firstClasses = null;
 
             foreach ($element->parentNode->childNodes as $sibling) {
                 if ($sibling->nodeType === XML_ELEMENT_NODE) {
                     if (!$firstChild) {
                         $firstChild = $sibling;
+                        $firstClasses = $sibling->getAttribute('class');
                     } else if ($sibling->tagName === $firstChild->tagName) {
                         $structureCount++;
+                        // Check if they have identical or very similar classes (loop indicator)
+                        $siblingClasses = $sibling->getAttribute('class');
+                        if ($siblingClasses !== $firstClasses) {
+                            $hasIdenticalClasses = false;
+                        }
                     }
                 }
             }
 
-            // If there are multiple elements with same tag name, likely a loop
-            if ($structureCount > 2) {
+            // Only mark as database content if:
+            // 1. There are many (5+) similar siblings (strong loop indicator)
+            // 2. OR there are 3+ siblings AND they have identical classes (loop with same styling)
+            if ($structureCount > 5 || ($structureCount > 2 && $hasIdenticalClasses && $firstClasses)) {
                 return true;
             }
         }
