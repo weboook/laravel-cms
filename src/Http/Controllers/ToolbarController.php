@@ -72,11 +72,24 @@ class ToolbarController extends Controller
             $allowedMethods = array_diff($methods, ['GET', 'HEAD']);
             $hasOnlyGetHead = empty($allowedMethods);
 
+            // Check if route has parameters - but treat {locale} as non-template
+            $hasNonLocaleParams = false;
+            if (str_contains($uri, '{')) {
+                // Extract all parameters
+                preg_match_all('/\{([^}]+)\}/', $uri, $matches);
+                $params = $matches[1] ?? [];
+                // Filter out locale-related parameters
+                $nonLocaleParams = array_filter($params, function($param) {
+                    return !in_array($param, ['locale', 'lang', 'language']);
+                });
+                $hasNonLocaleParams = !empty($nonLocaleParams);
+            }
+
             return $hasOnlyGetHead
                 && !str_starts_with($uri, 'api/')
                 && !str_starts_with($uri, 'cms/')
                 && !str_starts_with($uri, '_')
-                && !str_contains($uri, '{') // Exclude routes with parameters for now
+                && !$hasNonLocaleParams // Only exclude routes with non-locale parameters
                 && $uri !== 'sanctum/csrf-cookie'
                 && $uri !== 'livewire/message'
                 && !str_starts_with($uri, 'livewire/')
@@ -95,7 +108,7 @@ class ToolbarController extends Controller
             ];
         })->values();
 
-        // Check for template routes (routes with parameters)
+        // Check for template routes (routes with non-locale parameters)
         $templateRoutes = collect(Route::getRoutes())->filter(function ($route) use ($excludedRoutes, $excludedPaths) {
             $uri = $route->uri();
             $methods = $route->methods();
@@ -122,11 +135,23 @@ class ToolbarController extends Controller
             $allowedMethods = array_diff($methods, ['GET', 'HEAD']);
             $hasOnlyGetHead = empty($allowedMethods);
 
+            // Check if route has non-locale parameters (template pages)
+            $hasNonLocaleParams = false;
+            if (str_contains($uri, '{')) {
+                preg_match_all('/\{([^}]+)\}/', $uri, $matches);
+                $params = $matches[1] ?? [];
+                // Filter out locale-related parameters
+                $nonLocaleParams = array_filter($params, function($param) {
+                    return !in_array($param, ['locale', 'lang', 'language']);
+                });
+                $hasNonLocaleParams = !empty($nonLocaleParams);
+            }
+
             return $hasOnlyGetHead
                 && !str_starts_with($uri, 'api/')
                 && !str_starts_with($uri, 'cms/')
                 && !str_starts_with($uri, '_')
-                && str_contains($uri, '{')
+                && $hasNonLocaleParams // ONLY include routes with non-locale parameters
                 && !str_contains($uri, 'sanctum')
                 && !str_contains($uri, 'livewire')
                 && !str_starts_with($uri, 'log-viewer/')
@@ -135,6 +160,11 @@ class ToolbarController extends Controller
         })->map(function ($route) {
             $uri = $route->uri();
             preg_match_all('/\{([^}]+)\}/', $uri, $matches);
+            $params = $matches[1] ?? [];
+            // Filter out locale parameters from the list
+            $nonLocaleParams = array_filter($params, function($param) {
+                return !in_array($param, ['locale', 'lang', 'language']);
+            });
 
             return [
                 'name' => $route->getName() ?: $uri,
@@ -142,7 +172,7 @@ class ToolbarController extends Controller
                 'uri' => $uri,
                 'title' => $this->getPageTitle($route),
                 'is_template' => true,
-                'parameters' => $matches[1] ?? [],
+                'parameters' => array_values($nonLocaleParams), // Only show non-locale parameters
                 'sample_items' => $this->getSampleItems($route)
             ];
         })->values();
